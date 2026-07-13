@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07111f">
+<title>AI 台灣個股智慧選股 V4</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header><div><small>TAIWAN STOCK SCREENER</small><h1>AI 台灣個股智慧選股 <b>V4</b></h1></div><span id="health">連線中</span></header>
+<main>
+<section class="hero">
+<div><h2>台灣上市個股低檔轉強掃描</h2><p>月 KD、RSI、MACD、均線與量能綜合評分。可匯入歷史 CSV，並同步證交所官方當日行情。</p></div>
+<strong id="count">0</strong>
+</section>
+<section class="toolbar">
+<label class="btn secondary">匯入歷史 CSV<input id="file" type="file" accept=".csv" hidden></label>
+<button id="sync" class="secondary">同步官方行情</button>
+<button id="demo" class="secondary">示範資料</button>
+<button id="scan">開始掃描</button>
+</section>
+<section class="filters">
+<label>最低分數<input id="minScore" type="number" value="60"></label>
+<label>KD 低檔上限<input id="kdMax" type="number" value="35"></label>
+<label>RSI 最低值<input id="rsiMin" type="number" value="45"></label>
+<label>近半年漲幅上限 %<input id="riseMax" type="number" value="80"></label>
+</section>
+<section class="stats">
+<div><span>資料筆數</span><b id="rows">0</b></div><div><span>股票檔數</span><b id="stocks">0</b></div>
+<div><span>高分候選</span><b id="high">0</b></div><div><span>官方同步</span><b id="official">0</b></div>
+</section>
+<section class="card">
+<div class="title"><h3>掃描結果</h3><input id="search" placeholder="搜尋股票"></div>
+<div class="table"><table><thead><tr><th>股票</th><th>分數</th><th>收盤</th><th>K/D</th><th>RSI</th><th>MACD</th><th>狀態</th><th>進場條件</th></tr></thead><tbody id="body"></tbody></table></div>
+<p id="empty">尚未有符合條件的股票。</p>
+</section>
+<section class="note"><b>注意：</b>第一次只同步一天行情，無法計算月線指標；需要匯入至少 24 個月歷史資料。此工具是研究篩選，不是保證獲利。</section>
+</main>
+<script src="/app.js"></script>
+</body></html>

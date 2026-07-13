@@ -1,0 +1,8 @@
+{
+  "name": "AI 台灣個股智慧選股 V4",
+  "short_name": "台股選股V4",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06101d",
+  "theme_color": "#07111f"
+}
