@@ -18,7 +18,7 @@ def home():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, service="AI 台灣個股智慧選股 V4")
+    return jsonify(ok=True, service="AI 台灣個股智慧選股 V5")
 
 @app.get("/api/twse/daily")
 def twse_daily():
