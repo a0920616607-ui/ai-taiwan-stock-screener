@@ -456,7 +456,35 @@ window.openStockDetailByCode=function(code){
 
  $('#detailAddWatch').textContent=inWatch(x.code)?'管理自選股':'加入自選股';
 
- 
+ document.querySelectorAll('.reason-tab').forEach((b,i)=>b.classList.toggle('active',i===0));
+ document.querySelectorAll('.reason-panel').forEach((p,i)=>p.classList.toggle('active',i===0));
+
+ const overlay=$('#detailOverlay');
+ overlay.classList.add('open');
+ overlay.setAttribute('aria-hidden','false');
+ document.body.classList.add('modal-open');
+}
+
+window.closeStockDetail=function(){
+ const overlay=$('#detailOverlay');
+ overlay.classList.remove('open');
+ overlay.setAttribute('aria-hidden','true');
+ document.body.classList.remove('modal-open');
+}
+
+function setFlowValue(selector,value){
+ const el=$(selector);
+ const n=Number(value||0);
+ el.textContent=formatShares(n);
+ el.className=n>0?'flow-buy':n<0?'flow-sell':'';
+}
+
+$('#closeDetail').onclick=closeStockDetail;
+$('#closeDetail').addEventListener('touchend',e=>{e.preventDefault();e.stopPropagation();closeStockDetail();},{passive:false});
+$('#closeDetail').addEventListener('pointerup',e=>{e.preventDefault();e.stopPropagation();closeStockDetail();});
+$('#detailOverlay').addEventListener('click',e=>{
+ if(e.target===$('#detailOverlay')) closeStockDetail();
+});
 document.addEventListener('keydown',e=>{
  if(e.key==='Escape') closeStockDetail();
 });
@@ -466,7 +494,26 @@ $('#detailAddWatch').addEventListener('click',()=>{
  chooseGroup(detailStock.code);
 });
 
-
+const reasonTabs=document.querySelector('.reason-tabs');
+if(reasonTabs){
+ reasonTabs.addEventListener('click',e=>{
+  const btn=e.target.closest('.reason-tab');
+  if(!btn)return;
+  e.preventDefault();
+  e.stopPropagation();
+  const key=btn.dataset.reason;
+  document.querySelectorAll('.reason-tab').forEach(b=>b.classList.toggle('active',b===btn));
+  document.querySelectorAll('.reason-panel').forEach(p=>{
+   p.classList.toggle('active',p.dataset.reasonPanel===key);
+  });
+ });
+ reasonTabs.addEventListener('touchend',e=>{
+  const btn=e.target.closest('.reason-tab');
+  if(!btn)return;
+  e.preventDefault();
+  btn.click();
+ },{passive:false});
+}
 
 
 function renderRanking(){
@@ -513,59 +560,3 @@ async function refreshInstitutionalStatus(){
  }
 }
 refreshInstitutionalStatus();
-
-
-// V8.0 內頁互動修正：使用事件委派，避免動態內容或手機瀏覽器失效
-(function bindDetailInteractions(){
-  const detail = document.getElementById('stockDetail');
-  const closeBtn = document.getElementById('closeDetail');
-
-  const doClose = (event) => {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    if (typeof window.closeStockDetail === 'function') {
-      window.closeStockDetail();
-    } else if (detail) {
-      detail.classList.remove('open');
-      document.body.classList.remove('modal-open');
-    }
-  };
-
-  if (closeBtn) {
-    closeBtn.onclick = doClose;
-    closeBtn.addEventListener('touchend', doClose, {passive:false});
-    closeBtn.addEventListener('pointerup', doClose);
-  }
-
-  if (detail) {
-    detail.addEventListener('click', (event) => {
-      if (event.target === detail || event.target.classList.contains('detail-backdrop')) {
-        doClose(event);
-      }
-
-      const tab = event.target.closest('.reason-tab');
-      if (!tab) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      const key = tab.dataset.tab;
-      detail.querySelectorAll('.reason-tab').forEach(btn => {
-        btn.classList.toggle('active', btn === tab);
-        btn.setAttribute('aria-selected', btn === tab ? 'true' : 'false');
-      });
-
-      detail.querySelectorAll('.reason-panel').forEach(panel => {
-        const active = panel.dataset.panel === key;
-        panel.classList.toggle('active', active);
-        panel.hidden = !active;
-      });
-    });
-  }
-
-  window.addEventListener('popstate', () => {
-    if (detail?.classList.contains('open')) doClose();
-  });
-})();
