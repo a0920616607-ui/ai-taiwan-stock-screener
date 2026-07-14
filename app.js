@@ -246,7 +246,7 @@ async function analyzeSingleStock(code, selectedPeriod=singlePeriod){
 }
 function renderSingleResult(x){
  $('#singleResultCard').style.display='block';
- $('#singleTitle').textContent=`${x.name} ${x.code}｜${labelPeriod(x.period)}`;
+ $('#singleTitle').textContent=`${x.name} ${x.code}｜${x.market||''}｜${labelPeriod(x.period)}`;
  $('#sAi').textContent=x.aiScore??x.score??'-';
  $('#sTech').textContent=x.technicalScore??'-';
  $('#sInst').textContent=x.institutionalScore??'-';

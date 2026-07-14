@@ -77,49 +77,81 @@ def institutional_map():
         }
     return out
 
+
 def yahoo_chart(code, period="day"):
-    symbol = f"{code}.TW"
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-    r = requests.get(
-        url,
-        params={"interval": "1d", "range": "5y", "events": "history"},
-        headers=UA,
-        timeout=25
-    )
-    r.raise_for_status()
-    payload = r.json()
-    chart = payload.get("chart", {})
-    if chart.get("error"):
-        raise RuntimeError(chart["error"].get("description") or "歷史行情來源錯誤")
-    result = (chart.get("result") or [None])[0]
-    if not result:
-        raise RuntimeError("找不到歷史行情")
-    ts = result.get("timestamp") or []
-    quote = ((result.get("indicators") or {}).get("quote") or [None])[0]
-    if not quote:
-        raise RuntimeError("歷史行情欄位不完整")
+    last_error = None
 
-    rows = []
-    for i, t in enumerate(ts):
+    # .TW = 上市；.TWO = 上櫃
+    for suffix in [".TW", ".TWO"]:
+        symbol = f"{code}{suffix}"
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+
         try:
-            c = quote["close"][i]
-            if c is None:
-                continue
-            o = quote["open"][i] if quote["open"][i] is not None else c
-            h = quote["high"][i] if quote["high"][i] is not None else c
-            l = quote["low"][i] if quote["low"][i] is not None else c
-            v = quote["volume"][i] if quote["volume"][i] is not None else 0
-            rows.append({
-                "date": datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%d"),
-                "open": float(o), "high": float(h), "low": float(l),
-                "close": float(c), "volume": float(v)
-            })
-        except Exception:
-            continue
+            r = requests.get(
+                url,
+                params={"interval": "1d", "range": "5y", "events": "history"},
+                headers=UA,
+                timeout=25
+            )
+            r.raise_for_status()
+            payload = r.json()
+            chart = payload.get("chart", {})
 
-    if period == "day":
-        return rows
-    return resample(rows, period)
+            if chart.get("error"):
+                last_error = chart["error"].get("description") or "歷史行情來源錯誤"
+                continue
+
+            result = (chart.get("result") or [None])[0]
+            if not result:
+                last_error = "找不到歷史行情"
+                continue
+
+            ts = result.get("timestamp") or []
+            quote = ((result.get("indicators") or {}).get("quote") or [None])[0]
+            meta = result.get("meta") or {}
+
+            if not quote or not ts:
+                last_error = "歷史行情欄位不完整"
+                continue
+
+            rows = []
+            for i, t in enumerate(ts):
+                try:
+                    c = quote["close"][i]
+                    if c is None:
+                        continue
+                    o = quote["open"][i] if quote["open"][i] is not None else c
+                    h = quote["high"][i] if quote["high"][i] is not None else c
+                    l = quote["low"][i] if quote["low"][i] is not None else c
+                    v = quote["volume"][i] if quote["volume"][i] is not None else 0
+                    rows.append({
+                        "date": datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%d"),
+                        "open": float(o),
+                        "high": float(h),
+                        "low": float(l),
+                        "close": float(c),
+                        "volume": float(v)
+                    })
+                except Exception:
+                    continue
+
+            if not rows:
+                last_error = "沒有可用歷史行情"
+                continue
+
+            if period != "day":
+                rows = resample(rows, period)
+
+            return rows, {
+                "symbol": symbol,
+                "exchange": "TWSE" if suffix == ".TW" else "TPEx",
+                "name": meta.get("longName") or meta.get("shortName") or code
+            }
+
+        except Exception as exc:
+            last_error = str(exc)
+
+    raise RuntimeError(last_error or "找不到此股票代號")
 
 def resample(rows, period):
     groups = {}
@@ -193,7 +225,7 @@ def sma(a, n):
 
 
 def analyze(code, name, period, inst):
-    rows = yahoo_chart(code, period)
+    rows, source_meta = yahoo_chart(code, period)
     if len(rows) < 30:
         raise RuntimeError(f"{period} 資料不足：{len(rows)} 筆")
 
@@ -362,7 +394,9 @@ def analyze(code, name, period, inst):
 
     return {
         "code": code,
-        "name": name,
+        "name": source_meta.get("name") if not name or name == code else name,
+        "market": source_meta.get("exchange"),
+        "symbol": source_meta.get("symbol"),
         "period": period,
         "date": rows[-1]["date"],
         "close": round(c[i], 2),
@@ -391,7 +425,7 @@ def home():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V6.4", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V6.5", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
@@ -448,22 +482,29 @@ def scan():
 def stock_detail(code):
     code = str(code).strip()
     period = request.args.get("period", "day")
+
     if period not in {"day", "week", "month"}:
         period = "day"
+
     if not re.fullmatch(r"\d{4}", code):
         return jsonify(ok=False, error="股票代號需為 4 碼"), 400
 
     try:
-        uni = twse_universe()
-        stock_info = next((x for x in uni if x["code"] == code), None)
-        if not stock_info:
-            return jsonify(ok=False, error="找不到此上市股票代號"), 404
+        stock_name = code
+        try:
+            uni = twse_universe()
+            stock_info = next((x for x in uni if x["code"] == code), None)
+            if stock_info:
+                stock_name = stock_info["name"]
+        except Exception:
+            pass
 
         inst = institutional_map()
-        result = analyze(code, stock_info["name"], period, inst)
+        result = analyze(code, stock_name, period, inst)
         return jsonify(ok=True, result=result)
+
     except Exception as e:
-        return jsonify(ok=False, error=str(e)), 502
+        return jsonify(ok=False, error=f"找不到可分析資料：{e}"), 404
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "10000")))
