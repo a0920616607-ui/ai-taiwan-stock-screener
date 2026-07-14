@@ -1,5 +1,5 @@
 const $=s=>document.querySelector(s);
-let universe=safeLoadUniverse(),results=[],period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
+let universe=safeLoadUniverse(),results=[],allScannedResults=[],period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
 function safeLoadUniverse(){
  try{
   const u=JSON.parse(localStorage.getItem('v63-universe')||'[]');
@@ -35,7 +35,7 @@ localStorage.setItem('v63-universe',JSON.stringify(d));
 localStorage.setItem('v63-last-sync',new Date().toISOString());
 page=0;
 $('#total').textContent=d.length;
-$('#progressText').textContent=`已同步 ${d.length} 檔上市股票`;
+$('#progressText').textContent=`已同步 ${d.length} 檔上市＋上櫃股票`;
  renderWatch();
 }
 async function scanPage(){
@@ -139,9 +139,47 @@ function getVolumeHint(x){
  return {type:'flat',text:'量能平穩'};
 }
 
+function hasReason(x, keyword){
+ const reasons=[
+  ...(x.technicalReasons||[]),
+  ...(x.institutionalReasons||[]),
+  ...(x.mainForceReasons||[])
+ ].join(' ');
+ return reasons.includes(keyword);
+}
+
+function filteredResults(){
+ const q=$('#search')?.value.trim()||'';
+ const market=$('#marketFilter')?.value||'all';
+ const tech=$('#techFilter')?.value||'all';
+ const sort=$('#sortMode')?.value||'score_desc';
+
+ let a=results.filter(x=>{
+  if(q && !x.code.includes(q) && !x.name.includes(q)) return false;
+  if(market!=='all' && x.market!==market) return false;
+
+  const signal=getSignal(x);
+  if(tech==='macd_gold' && !(Number(x.MACD)>0 || hasReason(x,'MACD 柱翻正'))) return false;
+  if(tech==='kd_gold' && !hasReason(x,'KD 黃金交叉')) return false;
+  if(tech==='rsi_up' && !hasReason(x,'RSI 向上')) return false;
+  if(tech==='volume' && Number(x.volumeRatio)<1.2) return false;
+  if(tech==='ma_bull' && !hasReason(x,'站上')) return false;
+  if(tech==='buy' && signal.type!=='buy') return false;
+  if(tech==='sell' && signal.type!=='sell') return false;
+  return true;
+ });
+
+ a.sort((x,y)=>{
+  if(sort==='score_asc') return Number(x.aiScore)-Number(y.aiScore);
+  if(sort==='code') return String(x.code).localeCompare(String(y.code));
+  if(sort==='volume') return Number(y.volumeRatio||0)-Number(x.volumeRatio||0);
+  return Number(y.aiScore)-Number(x.aiScore);
+ });
+ return a;
+}
+
 function renderResults(){
- const q=$('#search').value.trim();
- const a=results.filter(x=>!q||x.code.includes(q)||x.name.includes(q));
+ const a=filteredResults();
  const holder=$('#resultRows');
 
  holder.innerHTML=a.map((x,idx)=>{
@@ -151,9 +189,10 @@ function renderResults(){
   const institutional=Number(x.institutionalNet??0);
 
   return `<article class="pro-stock-row row-${signal.type}">
-    <button class="pro-stock-name" onclick="openStockDetail(${idx})" type="button">
+    <button class="pro-stock-name" onclick="openStockDetailByCode('${x.code}')" type="button">
       <b>${x.code}</b>
       <span>${x.name}</span>
+      <small>${x.market==='TPEx'?'上櫃':'上市'}</small>
     </button>
 
     <div class="pro-close">${x.close??'-'}</div>
@@ -382,10 +421,8 @@ if(universe.length){
 
 let detailStock=null;
 
-window.openStockDetail=function(index){
- const q=$('#search').value.trim();
- const filtered=results.filter(x=>!q||x.code.includes(q)||x.name.includes(q));
- const x=filtered[index];
+window.openStockDetailByCode=function(code){
+ const x=results.find(v=>v.code===code)||allScannedResults.find(v=>v.code===code);
  if(!x)return;
 
  detailStock=x;
@@ -445,7 +482,8 @@ function setFlowValue(selector,value){
  el.className=n>0?'flow-buy':n<0?'flow-sell':'';
 }
 
-$('#closeDetail').addEventListener('click',closeStockDetail);
+$('#closeDetail').onclick=closeStockDetail;
+$('#closeDetail').addEventListener('touchend',e=>{e.preventDefault();closeStockDetail();});
 $('#detailOverlay').addEventListener('click',e=>{
  if(e.target===$('#detailOverlay')) closeStockDetail();
 });
@@ -465,3 +503,30 @@ document.querySelectorAll('.reason-tab').forEach(btn=>{
   document.querySelectorAll('.reason-panel').forEach(p=>p.classList.toggle('active',p.dataset.reasonPanel===key));
  });
 });
+
+
+function renderRanking(){
+ const holder=$('#rankingList');
+ if(!holder) return;
+
+ const ranked=[...allScannedResults]
+  .sort((a,b)=>Number(b.aiScore||0)-Number(a.aiScore||0))
+  .slice(0,30);
+
+ holder.innerHTML=ranked.length?ranked.map((x,i)=>{
+  const signal=getSignal(x);
+  return `<button class="ranking-row rank-${signal.type}" onclick="openStockDetailByCode('${x.code}')" type="button">
+    <strong class="rank-no">${i+1}</strong>
+    <span class="rank-stock"><b>${x.code} ${x.name}</b><small>${x.market==='TPEx'?'上櫃':'上市'}｜${labelPeriod(x.period)}</small></span>
+    <span class="rank-signal signal-${signal.type}">${signal.icon} ${signal.label}</span>
+    <strong class="rank-score">${x.aiScore}</strong>
+  </button>`;
+ }).join(''):'<p class="ranking-empty">請先開始 AI 掃描，排行榜才會出現資料。</p>';
+}
+
+['marketFilter','techFilter','sortMode'].forEach(id=>{
+ const el=document.getElementById(id);
+ if(el) el.addEventListener('change',renderResults);
+});
+$('#refreshRanking')?.addEventListener('click',renderRanking);
+renderRanking();

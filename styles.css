@@ -389,3 +389,63 @@ body.modal-open{overflow:hidden}
  .detail-scroll{padding-left:12px;padding-right:12px}
  .detail-top-grid{grid-template-columns:80px 1fr 1fr;gap:8px}
 }
+
+/* V7.1 排行榜、技術篩選、上櫃搜尋 */
+.filter-panel{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;
+ padding:14px;margin-bottom:14px
+}
+.filter-panel label{color:#91a6be;font-size:13px}
+.filter-panel select{
+ width:100%;margin-top:6px;padding:11px;border-radius:10px;
+ border:1px solid #294763;background:#0d2136;color:#fff
+}
+.pro-stock-name small{margin-top:4px;color:#7f92a8;font-size:10px}
+
+.ranking-card{padding:18px}
+.ranking-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.ranking-head h2{margin:4px 0}
+.ranking-note{color:#91a6be;line-height:1.5}
+.ranking-list{display:grid;gap:8px}
+.ranking-row{
+ display:grid;grid-template-columns:42px 1fr 92px 54px;gap:10px;align-items:center;
+ width:100%;padding:13px;background:#0b1a2b;border:1px solid #203754;
+ border-radius:14px;text-align:left
+}
+.rank-buy{border-left:4px solid #ff3b3b}
+.rank-sell{border-left:4px solid #22c638}
+.rank-neutral{border-left:4px solid #70839a}
+.rank-no{font-size:21px;text-align:center}
+.rank-stock{display:flex;flex-direction:column}
+.rank-stock b{color:#fff;font-size:16px}
+.rank-stock small{color:#8ca0b8;margin-top:3px}
+.rank-signal{text-align:center;font-weight:800}
+.rank-score{font-size:25px;text-align:center;color:#24c8ff}
+.ranking-empty{color:#91a6be;text-align:center;padding:24px}
+
+/* 細項文字提高可讀性，取消亮色漸層反光 */
+.reason-panel,
+.reason-panel.active{
+ background:#0c1b2d!important;
+ border:1px solid #35516f!important;
+ box-shadow:none!important;
+}
+.reason-panel h4{color:#fff!important}
+.reason-panel ul,
+.reason-panel li{color:#d8e3ef!important;text-shadow:none!important}
+.reason-tab.active{
+ background:#12304c!important;color:#36c8ff!important;
+ border-color:#36c8ff!important;box-shadow:none!important
+}
+.detail-scroll{overscroll-behavior:contain}
+.icon-close{
+ position:relative;z-index:50;touch-action:manipulation;
+ pointer-events:auto
+}
+
+@media(max-width:600px){
+ .filter-panel{grid-template-columns:1fr}
+ .ranking-row{grid-template-columns:34px 1fr 70px 44px;padding:11px 8px}
+ .rank-stock b{font-size:14px}
+ .rank-signal{font-size:12px}
+}

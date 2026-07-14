@@ -8,6 +8,7 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 
 TWSE_DAILY = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
 TWSE_INST = "https://openapi.twse.com.tw/v1/fund/T86"
+TPEX_DAILY = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"
 UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/6.2)"}
 
 def num(v):
@@ -41,6 +42,48 @@ def twse_universe():
             "market": "TWSE"
         })
     return out
+
+
+def tpex_universe():
+    """上櫃股票清單。若櫃買 OpenAPI 暫時失敗，回傳空清單，不影響上市資料。"""
+    try:
+        r = requests.get(TPEX_DAILY, headers=UA, timeout=30)
+        r.raise_for_status()
+        rows = r.json()
+    except Exception:
+        return []
+
+    out = []
+    for x in rows:
+        code = str(pick(x, [
+            "SecuritiesCompanyCode", "證券代號", "Code", "股票代號"
+        ]) or "").strip()
+        if not re.fullmatch(r"\d{4}", code):
+            continue
+
+        close = num(pick(x, [
+            "Close", "收盤價", "ClosingPrice", "ClosePrice"
+        ]))
+        if close is None:
+            continue
+
+        name = str(pick(x, [
+            "CompanyName", "證券名稱", "Name", "股票名稱"
+        ]) or code).strip()
+
+        out.append({
+            "code": code,
+            "name": name,
+            "close": close,
+            "market": "TPEx"
+        })
+    return out
+
+def all_universe():
+    merged = {}
+    for item in twse_universe() + tpex_universe():
+        merged[item["code"]] = item
+    return sorted(merged.values(), key=lambda x: x["code"])
 
 def institutional_map():
     try:
@@ -425,12 +468,12 @@ def home():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V7.0", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V7.1", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
     try:
-        return jsonify(twse_universe())
+        return jsonify(all_universe())
     except Exception as e:
         return jsonify(error=str(e)), 502
 
@@ -442,7 +485,7 @@ def scan():
     limit = min(40, max(1, int(body.get("limit", 20))))
 
     try:
-        uni = twse_universe()
+        uni = all_universe()
         inst = institutional_map()
         batch = uni[offset:offset + limit]
         results, errors = [], []
@@ -492,7 +535,7 @@ def stock_detail(code):
     try:
         stock_name = code
         try:
-            uni = twse_universe()
+            uni = all_universe()
             stock_info = next((x for x in uni if x["code"] == code), None)
             if stock_info:
                 stock_name = stock_info["name"]

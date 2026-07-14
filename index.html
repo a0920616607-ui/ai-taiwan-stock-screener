@@ -1,13 +1,14 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V7.0</title>
-<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=70">
+<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V7.1</title>
+<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=71">
 </head><body>
-<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V7.0</b></h1></div><span id="health">連線中</span></header>
+<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V7.1</b></h1></div><span id="health">連線中</span></header>
 <main>
 <nav class="tabs">
 <button class="tab active" data-p="scanPanel">AI 選股</button>
+<button class="tab" data-p="rankingPanel">AI 排行榜</button>
 <button class="tab" data-p="singlePanel">單股分析</button>
 <button class="tab" data-p="watchPanel">自選股</button>
 <button class="tab" data-p="guidePanel">說明</button>
@@ -22,6 +23,35 @@
 <button class="period active" data-period="day">日線</button>
 <button class="period" data-period="week">週線</button>
 <button class="period" data-period="month">月線</button>
+</div>
+<div class="filter-panel card">
+  <label>市場
+    <select id="marketFilter">
+      <option value="all">上市＋上櫃</option>
+      <option value="TWSE">上市</option>
+      <option value="TPEx">上櫃</option>
+    </select>
+  </label>
+  <label>技術條件
+    <select id="techFilter">
+      <option value="all">全部條件</option>
+      <option value="macd_gold">MACD 黃金交叉／翻正</option>
+      <option value="kd_gold">KD 黃金交叉</option>
+      <option value="rsi_up">RSI 向上</option>
+      <option value="volume">量能放大</option>
+      <option value="ma_bull">站上均線</option>
+      <option value="buy">買入燈號</option>
+      <option value="sell">賣出燈號</option>
+    </select>
+  </label>
+  <label>排序
+    <select id="sortMode">
+      <option value="score_desc">AI 分數高→低</option>
+      <option value="score_asc">AI 分數低→高</option>
+      <option value="code">代號排序</option>
+      <option value="volume">量比高→低</option>
+    </select>
+  </label>
 </div>
 <div class="progress card"><div><span id="progressText">尚未掃描</span><span id="dataDate">—</span></div><progress id="progress" max="100" value="0"></progress></div>
 <div class="stats">
@@ -54,6 +84,21 @@
 </section>
 </section>
 
+
+
+<section id="rankingPanel" class="panel">
+  <section class="card ranking-card">
+    <div class="ranking-head">
+      <div>
+        <small>AI STOCK RANKING</small>
+        <h2>AI 選股排行榜</h2>
+      </div>
+      <button id="refreshRanking" type="button">更新排行榜</button>
+    </div>
+    <p class="ranking-note">依目前已掃描股票的 AI 總分排序；掃描更多頁面後，排行榜會自動累積。</p>
+    <div id="rankingList" class="ranking-list"></div>
+  </section>
+</section>
 
 <section id="singlePanel" class="panel">
   <section class="card single-card">
@@ -137,7 +182,7 @@
         <button id="confirmNo" class="secondary">取消</button>
       </div>
     </dialog>
-<script src="/app.js?v=70"></script>
+<script src="/app.js?v=71"></script>
 
 
 
