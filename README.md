@@ -1,33 +1,19 @@
-# AI 台灣個股智慧選股 V5 正式版
+# AI 台灣個股智慧選股 V6
 
-## V5 新增
-- 三種選股模式：低檔剛交叉、底部突破、回測進場
-- AI 找相似股票：可輸入 1303 南亞，計算全市場技術型態相似度
-- 自選股儲存
-- 股票詳細資料視窗
-- 選股結果匯出 CSV
-- 手機優先介面
-- Render 部署服務名稱改為 `ai-taiwan-stock-screener-v5`
+已完成使用者要求：
+1. 完全移除示範資料，避免誤判。
+2. 手機按鍵重新排列：同步名單、開始 AI 掃描為主要按鍵。
+3. 自選股可選擇分類，支援新增分類與分類頁籤。
+4. 增加日線、週線、月線週期。
+5. 移除 CSV 匯入，不再需要自行製作資料。
 
-## GitHub 更新方式
-不需要刪除 Repository。
-直接把此 ZIP 解壓後的全部檔案上傳到同一個 Repository，選擇覆蓋同名檔案並 Commit。
+## 更新方式
+將本 ZIP 解壓後的全部檔案上傳到原 GitHub Repository，覆蓋同名檔案後 Commit。
+回 Render Blueprint 按 Manual Sync → Approve。
+新服務名稱：ai-taiwan-stock-screener-v6
 
-根目錄必須直接看到：
-- app.py
-- app.js
-- index.html
-- styles.css
-- render.yaml
-- requirements.txt
-- manifest.webmanifest
-
-## Render
-回 Render 的 Blueprint 按 Manual Sync。
-新服務名稱會是 `ai-taiwan-stock-screener-v5`。
-確認後 Deploy Blueprint。
-
-## 目前限制
-- 官方同步端點目前為上市個股當日行情。
-- 月 KD、RSI、MACD 仍需至少約 24 個月歷史 CSV。
-- 上櫃、法人籌碼、營收與 EPS 尚未納入此版本。
+## 資料說明
+- 上市股票名單與當日行情：證交所公開 OpenAPI。
+- 歷史行情：後端自動取得，不需 CSV。
+- 每頁掃描 20 檔，避免免費雲端一次請求過久。
+- 目前先完成上市股票；上櫃完整串接留待 V6.1。
