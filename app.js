@@ -95,37 +95,6 @@ function getSignal(x){
  if(ai<=45 && inst<0 && foreign<0 && main<=40){
   return {type:'sell',label:'賣出',icon:'↓'};
  }
- return {type:'neutral',label:'中性',icon:''};
-}
-function getVolumeHint(x){
- const vr=Number(x.volumeRatio??0);
- const inst=Number(x.institutionalNet??0);
- const foreign=Number(x.foreignNet??0);
- const main=Number(x.mainForceScore??50);
-
- if(vr>=1.2 && (inst>0 || foreign>0) && main>=60){
-  return {type:'buy',text:'買入量能放大'};
- }
- if(vr>=1.2 && inst<0 && foreign<0 && main<=40){
-  return {type:'sell',text:'賣出量能放大'};
- }
- if(vr>=1.2){
-  return {type:'volume',text:'量能放大'};
- }
- return {type:'flat',text:'量能平穩'};
-}
-function getSignal(x){
- const ai=Number(x.aiScore??x.score??0);
- const inst=Number(x.institutionalNet??0);
- const foreign=Number(x.foreignNet??0);
- const main=Number(x.mainForceScore??50);
-
- if(ai>=65 && (inst>0 || foreign>0) && main>=60){
-  return {type:'buy',label:'買入',icon:'↑'};
- }
- if(ai<=45 && inst<0 && foreign<0 && main<=40){
-  return {type:'sell',label:'賣出',icon:'↓'};
- }
  return {type:'neutral',label:'中性',icon:'—'};
 }
 function getVolumeHint(x){
@@ -143,73 +112,44 @@ function getVolumeHint(x){
  if(vr>=1.2){
   return {type:'volume',text:'量能放大'};
  }
- return {type:'flat',text:'量能平穩'};
-}
-function getSignal(x){
- const ai=Number(x.aiScore??x.score??0);
- const inst=Number(x.institutionalNet??0);
- const foreign=Number(x.foreignNet??0);
- const main=Number(x.mainForceScore??50);
-
- if(ai>=65 && (inst>0 || foreign>0) && main>=60){
-  return {type:'buy',label:'買入',icon:'↑'};
- }
- if(ai<=45 && inst<0 && foreign<0 && main<=40){
-  return {type:'sell',label:'賣出',icon:'↓'};
- }
- return {type:'neutral',label:'中性',icon:'—'};
-}
-function getVolumeHint(x){
- const vr=Number(x.volumeRatio??0);
- const inst=Number(x.institutionalNet??0);
- const foreign=Number(x.foreignNet??0);
- const main=Number(x.mainForceScore??50);
-
- if(vr>=1.2 && (inst>0 || foreign>0) && main>=60){
-  return {type:'buy',text:'買入量能放大'};
- }
- if(vr>=1.2 && inst<0 && foreign<0 && main<=40){
-  return {type:'sell',text:'賣出量能放大'};
- }
- if(vr>=1.2){
-  return {type:'volume',text:'量能放大'};
- }
- return {type:'flat',text:'量能平穩'};
+ return {type:'flat',text:'平穩'};
 }
 function renderResults(){
  const q=$('#search').value.trim();
  const a=results.filter(x=>!q||x.code.includes(q)||x.name.includes(q));
+ const holder=$('#resultRows');
 
- $('#body').innerHTML=a.map((x,idx)=>{
+ holder.innerHTML=a.map((x,idx)=>{
   const signal=getSignal(x);
   const hint=getVolumeHint(x);
   const ai=Number(x.aiScore??x.score??0);
+  const institutional=Number(x.institutionalNet??0);
 
-  return `<tr>
-    <td>
-      <button class="stock-link" onclick="openStockDetail(${idx})">
-        <b>${x.code}</b><span>${x.name}</span>
-      </button>
-    </td>
-    <td class="close-price">${x.close??'-'}</td>
-    <td>
-      <div class="signal signal-${signal.type}">
-        <span class="signal-icon">${signal.icon}</span>
-        <span>${signal.label}</span>
-      </div>
-    </td>
-    <td class="ai-number signal-text-${signal.type}">${ai}</td>
-    <td class="flow-cell">
-      <div>法人 <b class="${Number(x.institutionalNet)>0?'flow-buy':Number(x.institutionalNet)<0?'flow-sell':''}">${formatShares(x.institutionalNet)}</b></div>
-      <div>主力 <b>${x.mainForceScore??'-'}</b></div>
-    </td>
-    <td>
-      <div class="volume-hint hint-${hint.type}">
-        <span>${hint.text}</span>
-        <span class="volume-bars"><i></i><i></i><i></i></span>
-      </div>
-    </td>
-  </tr>`;
+  return `<article class="mobile-stock-row row-${signal.type}">
+    <button class="mobile-stock-name" onclick="openStockDetail(${idx})">
+      <b>${x.code}</b>
+      <span>${x.name}</span>
+    </button>
+
+    <div class="mobile-close">${x.close??'-'}</div>
+
+    <div class="mobile-signal signal-${signal.type}">
+      <span class="mobile-signal-icon">${signal.icon}</span>
+      <small>${signal.label}</small>
+    </div>
+
+    <div class="mobile-ai signal-text-${signal.type}">${ai}</div>
+
+    <div class="mobile-flow">
+      <span>法人 <b class="${institutional>0?'flow-buy':institutional<0?'flow-sell':''}">${formatShares(institutional)}</b></span>
+      <span>主力 <b>${x.mainForceScore??'-'}</b></span>
+    </div>
+
+    <div class="mobile-volume hint-${hint.type}">
+      <span class="volume-bars"><i></i><i></i><i></i></span>
+      <small>${hint.text}</small>
+    </div>
+  </article>`;
  }).join('');
 
  $('#empty').style.display=a.length?'none':'block';
