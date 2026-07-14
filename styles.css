@@ -87,3 +87,73 @@ main{padding-top:10px}
  .signal-table table{min-width:820px}
  .signal-table th,.signal-table td{padding-left:8px;padding-right:8px}
 }
+
+/* V6.7 專業卡片版 */
+.result-cards{display:grid;gap:16px;margin-top:14px}
+.stock-result-card{
+ background:linear-gradient(180deg,#0a1a2c,#071422);
+ border:1px solid #24415f;
+ border-radius:22px;
+ padding:16px;
+ box-shadow:0 10px 28px rgba(0,0,0,.25)
+}
+.signal-border-buy{border-left:5px solid #ff3b3b}
+.signal-border-sell{border-left:5px solid #22c638}
+.signal-border-neutral{border-left:5px solid #70839a}
+
+.stock-card-top{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
+.stock-id strong{display:block;font-size:22px}
+.stock-id span{font-size:18px;color:#e8eef7}
+.stock-close{text-align:right}
+.stock-close small{display:block;color:#8394aa}
+.stock-close b{font-size:22px}
+
+.stock-card-main{display:grid;grid-template-columns:82px 90px 1fr;gap:12px;align-items:center;margin-top:16px}
+.big-signal{display:flex;flex-direction:column;align-items:center;font-weight:800}
+.signal-circle{
+ display:flex;width:54px;height:54px;border:5px solid currentColor;border-radius:50%;
+ align-items:center;justify-content:center;font-size:34px;line-height:1
+}
+.signal-buy,.signal-text-buy{color:#ff3b3b}
+.signal-sell,.signal-text-sell{color:#22c638}
+.signal-neutral,.signal-text-neutral{color:#98a7b9}
+
+.ai-score-box{text-align:center}
+.ai-score-box small{display:block;color:#8fa0b5}
+.ai-score-box strong{font-size:34px}
+
+.score-mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.score-mini-grid>div{background:#0d2136;border:1px solid #294763;border-radius:12px;padding:10px;text-align:center}
+.score-mini-grid span{display:block;color:#8798ad;font-size:12px}
+.score-mini-grid b{font-size:20px}
+
+.flow-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:14px}
+.flow-grid>div{background:#0a1c2e;border-radius:12px;padding:10px}
+.flow-grid span{display:block;color:#8fa0b5;font-size:12px}
+.flow-grid b{font-size:17px}
+.flow-buy{color:#ff4545}.flow-sell{color:#23c943}
+
+.indicator-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.indicator-row span{background:#0c1f32;border-radius:10px;padding:8px;text-align:center;color:#8ea0b5;font-size:12px}
+.indicator-row b{display:block;color:#eef4fb;font-size:15px;margin-top:3px}
+
+.volume-alert{display:flex;align-items:center;gap:10px;margin-top:12px;border-radius:12px;padding:10px 12px;font-weight:800}
+.hint-buy{background:rgba(255,59,59,.12);color:#ff4545}
+.hint-sell{background:rgba(34,198,56,.12);color:#22c638}
+.hint-volume{background:rgba(255,122,0,.12);color:#ff7a00}
+.hint-flat{background:rgba(145,160,180,.1);color:#9aa8ba}
+
+.volume-bars{display:flex;align-items:flex-end;height:25px;gap:3px}
+.volume-bars i{display:block;width:7px;border-radius:2px;background:currentColor}
+.volume-bars i:nth-child(1){height:9px}
+.volume-bars i:nth-child(2){height:16px}
+.volume-bars i:nth-child(3){height:24px}
+
+@media(max-width:520px){
+ .stock-result-card{padding:14px}
+ .stock-card-main{grid-template-columns:74px 78px 1fr;gap:8px}
+ .score-mini-grid{gap:5px}
+ .score-mini-grid>div{padding:8px 5px}
+ .flow-grid{grid-template-columns:repeat(2,1fr)}
+ .indicator-row{grid-template-columns:repeat(2,1fr)}
+}

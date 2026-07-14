@@ -57,7 +57,7 @@ async function scanPage(){
   $('#progress').value=100;
   $('#scanned').textContent=Math.min((page+1)*pageSize,d.total||0);
   $('#high').textContent=results.filter(x=>x.score>=80).length;
-  if($('#match')) $('#match').textContent=results.filter(x=>x.score>=65).length;
+  if($('#match')) if($('#match')) $('#match').textContent=results.filter(x=>x.score>=65).length;
   $('#dataDate').textContent=`資料：${d.date||'—'}`;
   $('#progressText').textContent=`第 ${page+1} 頁完成：成功 ${d.successCount||0}，失敗 ${d.errorCount||0}`;
   $('#pageLabel').textContent=`第 ${page+1} 頁 / ${Math.max(1,Math.ceil((d.total||0)/pageSize))} 頁`;
@@ -114,38 +114,100 @@ function getVolumeHint(x){
  }
  return {type:'flat',text:'量能平穩'};
 }
+function getSignal(x){
+ const ai=Number(x.aiScore??x.score??0);
+ const inst=Number(x.institutionalNet??0);
+ const foreign=Number(x.foreignNet??0);
+ const main=Number(x.mainForceScore??50);
+
+ if(ai>=65 && (inst>0 || foreign>0) && main>=60){
+  return {type:'buy',label:'買入',icon:'↑'};
+ }
+ if(ai<=45 && inst<0 && foreign<0 && main<=40){
+  return {type:'sell',label:'賣出',icon:'↓'};
+ }
+ return {type:'neutral',label:'中性',icon:'—'};
+}
+function getVolumeHint(x){
+ const vr=Number(x.volumeRatio??0);
+ const inst=Number(x.institutionalNet??0);
+ const foreign=Number(x.foreignNet??0);
+ const main=Number(x.mainForceScore??50);
+
+ if(vr>=1.2 && (inst>0 || foreign>0) && main>=60){
+  return {type:'buy',text:'買入量能放大'};
+ }
+ if(vr>=1.2 && inst<0 && foreign<0 && main<=40){
+  return {type:'sell',text:'賣出量能放大'};
+ }
+ if(vr>=1.2){
+  return {type:'volume',text:'量能放大'};
+ }
+ return {type:'flat',text:'量能平穩'};
+}
 function renderResults(){
  const q=$('#search').value.trim();
  const a=results.filter(x=>!q||x.code.includes(q)||x.name.includes(q));
+ const holder=$('#resultCards');
 
- $('#body').innerHTML=a.map(x=>{
+ holder.innerHTML=a.map(x=>{
   const signal=getSignal(x);
   const hint=getVolumeHint(x);
   const ai=Number(x.aiScore??x.score??0);
-  return `<tr>
-   <td><button title="${inWatch(x.code)?'管理自選股':'加入自選股'}" class="star ${inWatch(x.code)?'on':''}" onclick="chooseGroup('${x.code}')">★</button></td>
-   <td class="stock-name"><b>${x.code}</b><br><span>${x.name}</span></td>
-   <td class="close-price">${x.close??'-'}</td>
-   <td>
-    <div class="signal signal-${signal.type}">
-      ${signal.icon?`<span class="signal-icon">${signal.icon}</span>`:''}
-      <span>${signal.label}</span>
+  const tech=Number(x.technicalScore??0);
+  const instScore=Number(x.institutionalScore??0);
+  const main=Number(x.mainForceScore??0);
+
+  return `<article class="stock-result-card signal-border-${signal.type}">
+   <div class="stock-card-top">
+    <button class="star ${inWatch(x.code)?'on':''}" onclick="chooseGroup('${x.code}')" title="加入或管理自選股">★</button>
+    <div class="stock-id">
+      <strong>${x.code}</strong>
+      <span>${x.name}</span>
     </div>
-   </td>
-   <td class="ai-number signal-text-${signal.type}">${ai}</td>
-   <td class="flow-cell">
-    <div>法人 <b class="${Number(x.institutionalNet)>0?'flow-buy':Number(x.institutionalNet)<0?'flow-sell':''}">${formatShares(x.institutionalNet)}</b></div>
-    <div>外資 <b class="${Number(x.foreignNet)>0?'flow-buy':Number(x.foreignNet)<0?'flow-sell':''}">${formatShares(x.foreignNet)}</b></div>
-    <div>主力 <b>${x.mainForceScore??'-'}</b></div>
-   </td>
-   <td>
-    <div class="volume-hint hint-${hint.type}">
-      <span>${hint.text}</span>
-      <span class="volume-bars"><i></i><i></i><i></i></span>
-      <small>量比 ${x.volumeRatio??'-'}</small>
+    <div class="stock-close">
+      <small>收盤</small>
+      <b>${x.close??'-'}</b>
     </div>
-   </td>
-  </tr>`;
+   </div>
+
+   <div class="stock-card-main">
+    <div class="big-signal signal-${signal.type}">
+      <span class="signal-circle">${signal.icon}</span>
+      <b>${signal.label}</b>
+    </div>
+
+    <div class="ai-score-box signal-text-${signal.type}">
+      <small>AI總分</small>
+      <strong>${ai}</strong>
+    </div>
+
+    <div class="score-mini-grid">
+      <div><span>技術</span><b>${tech}</b></div>
+      <div><span>法人</span><b>${instScore}</b></div>
+      <div><span>主力</span><b>${main}</b></div>
+    </div>
+   </div>
+
+   <div class="flow-grid">
+    <div><span>三大法人</span><b class="${Number(x.institutionalNet)>0?'flow-buy':Number(x.institutionalNet)<0?'flow-sell':''}">${formatShares(x.institutionalNet)}</b></div>
+    <div><span>外資</span><b class="${Number(x.foreignNet)>0?'flow-buy':Number(x.foreignNet)<0?'flow-sell':''}">${formatShares(x.foreignNet)}</b></div>
+    <div><span>投信</span><b class="${Number(x.trustNet)>0?'flow-buy':Number(x.trustNet)<0?'flow-sell':''}">${formatShares(x.trustNet)}</b></div>
+    <div><span>自營商</span><b class="${Number(x.dealerNet)>0?'flow-buy':Number(x.dealerNet)<0?'flow-sell':''}">${formatShares(x.dealerNet)}</b></div>
+   </div>
+
+   <div class="indicator-row">
+    <span>K/D <b>${x.K??'-'} / ${x.D??'-'}</b></span>
+    <span>RSI <b>${x.RSI??'-'}</b></span>
+    <span>MACD <b>${x.MACD??'-'}</b></span>
+    <span>量比 <b>${x.volumeRatio??'-'}</b></span>
+   </div>
+
+   <div class="volume-alert hint-${hint.type}">
+    <span class="volume-bars"><i></i><i></i><i></i></span>
+    <strong>${hint.text}</strong>
+   </div>
+  </article>`;
  }).join('');
 
  $('#empty').style.display=a.length?'none':'block';
