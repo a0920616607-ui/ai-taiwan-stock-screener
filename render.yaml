@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ai-taiwan-stock-screener-v6-3
+    name: ai-taiwan-stock-screener-v6-4
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt

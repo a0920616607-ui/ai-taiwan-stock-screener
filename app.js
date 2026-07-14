@@ -1,5 +1,5 @@
 const $=s=>document.querySelector(s);
-let universe=safeLoadUniverse(),results=[],period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null;
+let universe=safeLoadUniverse(),results=[],period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
 function safeLoadUniverse(){
  try{
   const u=JSON.parse(localStorage.getItem('v63-universe')||'[]');
@@ -217,6 +217,71 @@ $('#confirmYes').onclick=()=>{
  if(action)action();
 }
 $('#confirmNo').onclick=()=>{pendingConfirm=null;$('#confirmDialog').close()}
+
+
+async function analyzeSingleStock(code, selectedPeriod=singlePeriod){
+ code=String(code||'').trim();
+ if(!/^\d{4}$/.test(code)){
+  alert('請輸入 4 碼股票代號');
+  return null;
+ }
+ $('#singleStatus').textContent='分析中…';
+ $('#analyzeSingle').disabled=true;
+ try{
+  const r=await fetch(`/api/stock/${code}?period=${selectedPeriod}`);
+  const d=await r.json();
+  if(!r.ok||d.ok===false) throw Error(d.error||'分析失敗');
+  singleResult=d.result;
+  renderSingleResult(singleResult);
+  $('#singleStatus').textContent=`${singleResult.name} ${singleResult.code}｜${labelPeriod(singleResult.period)}分析完成`;
+  return singleResult;
+ }catch(e){
+  $('#singleResultCard').style.display='none';
+  $('#singleStatus').textContent=`分析失敗：${e.message}`;
+  alert(`分析失敗：${e.message}`);
+  return null;
+ }finally{
+  $('#analyzeSingle').disabled=false;
+ }
+}
+function renderSingleResult(x){
+ $('#singleResultCard').style.display='block';
+ $('#singleTitle').textContent=`${x.name} ${x.code}｜${labelPeriod(x.period)}`;
+ $('#sAi').textContent=x.aiScore??x.score??'-';
+ $('#sTech').textContent=x.technicalScore??'-';
+ $('#sInst').textContent=x.institutionalScore??'-';
+ $('#sMain').textContent=x.mainForceScore??'-';
+ $('#sClose').textContent=x.close??'-';
+ $('#sKD').textContent=`${x.K??'-'} / ${x.D??'-'}`;
+ $('#sRSI').textContent=x.RSI??'-';
+ $('#sMACD').textContent=x.MACD??'-';
+ $('#sVR').textContent=x.volumeRatio??'-';
+ $('#sStatus').textContent=x.status??'-';
+ $('#sTechReasons').innerHTML=(x.technicalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
+ $('#sInstReasons').innerHTML=(x.institutionalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
+ $('#sMainReasons').innerHTML=(x.mainForceReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
+}
+$('#analyzeSingle').onclick=()=>analyzeSingleStock($('#singleCode').value);
+document.querySelectorAll('.single-period').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('.single-period').forEach(x=>x.classList.remove('active'));
+ b.classList.add('active');
+ singlePeriod=b.dataset.singlePeriod;
+ if($('#singleCode').value.trim()) analyzeSingleStock($('#singleCode').value);
+});
+$('#singleAddWatch').onclick=()=>{
+ if(!singleResult)return;
+ chooseGroup(singleResult.code);
+};
+$('#manualAnalyzeAdd').onclick=async()=>{
+ const code=$('#manualWatchCode').value.trim();
+ const result=await analyzeSingleStock(code,singlePeriod);
+ if(result){
+  document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));
+  document.querySelector('.tab[data-p="singlePanel"]').classList.add('active');
+  $('#singlePanel').classList.add('active');
+  chooseGroup(result.code);
+ }
+};
 
 $('#syncBtn').onclick=()=>syncUniverse().catch(e=>alert(e.message));
 $('#scanBtn').onclick=()=>scanPage().catch(e=>alert(e.message));

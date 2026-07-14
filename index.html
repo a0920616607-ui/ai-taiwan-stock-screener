@@ -1,15 +1,16 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V6.3</title>
+<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V6.4</title>
 <link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css">
 </head><body>
-<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V6.3</b></h1></div><span id="health">連線中</span></header>
+<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V6.4</b></h1></div><span id="health">連線中</span></header>
 <main>
 <section class="hero card"><div><h2>真實資料掃描</h2><p>不使用示範資料、不需要 CSV；自動取得行情並支援日、週、月週期。</p></div><div><strong id="match">0</strong><span>符合條件</span></div></section>
 
 <nav class="tabs">
 <button class="tab active" data-p="scanPanel">AI 選股</button>
+<button class="tab" data-p="singlePanel">單股分析</button>
 <button class="tab" data-p="watchPanel">自選股</button>
 <button class="tab" data-p="guidePanel">說明</button>
 </nav>
@@ -35,9 +36,57 @@
 <div class="pager"><button id="prev">上一頁</button><span id="pageLabel">第 1 頁</span><button id="next">下一頁</button></div>
 </section></section>
 
+
+<section id="singlePanel" class="panel">
+  <section class="card single-card">
+    <h3>單一股票立即分析</h3>
+    <p>輸入任何上市股票代號，不必先掃描到該頁。</p>
+    <div class="single-controls">
+      <input id="singleCode" inputmode="numeric" maxlength="4" placeholder="輸入股票代號，例如 2330">
+      <button id="analyzeSingle">立即分析</button>
+    </div>
+    <div class="single-periods">
+      <button class="single-period active" data-single-period="day">日線</button>
+      <button class="single-period" data-single-period="week">週線</button>
+      <button class="single-period" data-single-period="month">月線</button>
+    </div>
+    <p id="singleStatus">尚未分析</p>
+  </section>
+
+  <section id="singleResultCard" class="card" style="display:none">
+    <div class="title">
+      <h3 id="singleTitle">分析結果</h3>
+      <button id="singleAddWatch">加入自選股</button>
+    </div>
+    <div class="score-grid">
+      <div><span>AI總分</span><b id="sAi">-</b></div>
+      <div><span>技術</span><b id="sTech">-</b></div>
+      <div><span>法人</span><b id="sInst">-</b></div>
+      <div><span>主力</span><b id="sMain">-</b></div>
+    </div>
+    <div class="detail-grid">
+      <div><span>收盤</span><b id="sClose">-</b></div>
+      <div><span>K / D</span><b id="sKD">-</b></div>
+      <div><span>RSI</span><b id="sRSI">-</b></div>
+      <div><span>MACD</span><b id="sMACD">-</b></div>
+      <div><span>量比</span><b id="sVR">-</b></div>
+      <div><span>評級</span><b id="sStatus">-</b></div>
+    </div>
+    <div class="reason-columns">
+      <div><h4>技術原因</h4><ul id="sTechReasons"></ul></div>
+      <div><h4>法人原因</h4><ul id="sInstReasons"></ul></div>
+      <div><h4>主力原因</h4><ul id="sMainReasons"></ul></div>
+    </div>
+  </section>
+</section>
+
 <section id="watchPanel" class="panel">
 <section class="card">
-<div class="title watch-title">
+<div class="manual-watch-add card-inline">
+      <input id="manualWatchCode" inputmode="numeric" maxlength="4" placeholder="輸入股票代號">
+      <button id="manualAnalyzeAdd">分析後加入</button>
+    </div>
+    <div class="title watch-title">
       <h3>自選股分類</h3>
       <div class="watch-tools">
         <button id="addGroup">新增分類</button>

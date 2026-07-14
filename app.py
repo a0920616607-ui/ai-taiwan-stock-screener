@@ -391,7 +391,7 @@ def home():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V6.3", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V6.4", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
@@ -441,6 +441,27 @@ def scan():
             "results": results,
             "errors": errors[:10]
         })
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 502
+
+@app.get("/api/stock/<code>")
+def stock_detail(code):
+    code = str(code).strip()
+    period = request.args.get("period", "day")
+    if period not in {"day", "week", "month"}:
+        period = "day"
+    if not re.fullmatch(r"\d{4}", code):
+        return jsonify(ok=False, error="股票代號需為 4 碼"), 400
+
+    try:
+        uni = twse_universe()
+        stock_info = next((x for x in uni if x["code"] == code), None)
+        if not stock_info:
+            return jsonify(ok=False, error="找不到此上市股票代號"), 404
+
+        inst = institutional_map()
+        result = analyze(code, stock_info["name"], period, inst)
+        return jsonify(ok=True, result=result)
     except Exception as e:
         return jsonify(ok=False, error=str(e)), 502
 
