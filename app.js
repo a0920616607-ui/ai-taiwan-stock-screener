@@ -1,5 +1,14 @@
 const $=s=>document.querySelector(s);
-let universe=safeLoadUniverse(),results=[],allScannedResults=[],period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
+async function readJsonResponse(r){
+ const text=await r.text();
+ try{return JSON.parse(text)}catch(e){
+  const message=text.trim().startsWith('<')
+   ? `伺服器暫時回傳網頁錯誤（HTTP ${r.status}），請稍後重試`
+   : `資料格式錯誤（HTTP ${r.status}）`;
+  throw new Error(message);
+ }
+}
+let universe=safeLoadUniverse(),results=[],allScannedResults=[],period='day',page=0,pageSize=12,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
 function safeLoadUniverse(){
  try{
   const u=JSON.parse(localStorage.getItem('v63-universe')||'[]');
@@ -28,7 +37,7 @@ function saveGroups(){
 }
 async function syncUniverse(){
  $('#progressText').textContent='同步股票名單中…';
- const r=await fetch('/api/universe'),d=await r.json();
+ const r=await fetch('/api/universe'),d=await readJsonResponse(r);
  if(!r.ok) throw Error(d.error||'同步失敗');
  universe=d;
 localStorage.setItem('v63-universe',JSON.stringify(d));
@@ -48,9 +57,9 @@ async function scanPage(){
   const r=await fetch('/api/scan',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({period,offset:page*pageSize,limit:pageSize})
+   body:JSON.stringify({period,offset:page*pageSize,limit:pageSize,market:$('#marketFilter')?.value||'all'})
   });
-  const d=await r.json();
+  const d=await readJsonResponse(r);
   if(!r.ok || d.ok===false) throw Error(d.error||'掃描失敗');
 
   results=Array.isArray(d.results)?d.results:[];
@@ -206,7 +215,7 @@ function renderResults(){
 
     <div class="pro-flow">
       <span>法人 <b class="${institutional>0?'flow-buy':institutional<0?'flow-sell':''}">${formatShares(institutional)}</b></span>
-      <span>主力 <b>${x.mainForceScore??'-'}</b></span>
+      <span>主力 <b>${x.mainForceScore??'-'}</b></span><em class="flow-tag ${signal.type==='buy'?'tag-buy':signal.type==='sell'?'tag-sell':''}">${signal.type==='buy'?'買入量能放大':signal.type==='sell'?'賣出量能放大':''}</em>
     </div>
 
     <div class="pro-volume hint-${hint.type}">
@@ -408,7 +417,7 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));
  b.classList.add('active');$('#'+b.dataset.p).classList.add('active');
 });
-fetch('/api/health').then(r=>r.json()).then(()=>$('#health').textContent='雲端正常').catch(()=>$('#health').textContent='連線異常');
+fetch('/api/health').then(readJsonResponse).then(()=>$('#health').textContent='雲端正常').catch(()=>$('#health').textContent='連線異常');
 renderGroups();renderWatch();renderResults();
 
 if(universe.length){
@@ -468,7 +477,8 @@ window.openStockDetailByCode=function(code){
  document.body.classList.add('modal-open');
 }
 
-function closeStockDetail(){
+window.closeStockDetail=function(e){
+ if(e){e.preventDefault?.();e.stopPropagation?.();}
  const overlay=$('#detailOverlay');
  overlay.classList.remove('open');
  overlay.setAttribute('aria-hidden','true');
@@ -482,17 +492,17 @@ function setFlowValue(selector,value){
  el.className=n>0?'flow-buy':n<0?'flow-sell':'';
 }
 
-$('#closeDetail').onclick=closeStockDetail;
-$('#closeDetail').addEventListener('touchend',e=>{e.preventDefault();closeStockDetail();});
+$('#closeDetail').onclick=window.closeStockDetail;
+$('#closeDetail').addEventListener('touchend',e=>{e.preventDefault();window.closeStockDetail();});
 $('#detailOverlay').addEventListener('click',e=>{
- if(e.target===$('#detailOverlay')) closeStockDetail();
+ if(e.target===$('#detailOverlay')) window.closeStockDetail();
 });
 document.addEventListener('keydown',e=>{
- if(e.key==='Escape') closeStockDetail();
+ if(e.key==='Escape') window.closeStockDetail();
 });
 $('#detailAddWatch').addEventListener('click',()=>{
  if(!detailStock)return;
- closeStockDetail();
+ window.closeStockDetail();
  chooseGroup(detailStock.code);
 });
 
@@ -524,7 +534,12 @@ function renderRanking(){
  }).join(''):'<p class="ranking-empty">請先開始 AI 掃描，排行榜才會出現資料。</p>';
 }
 
-['marketFilter','techFilter','sortMode'].forEach(id=>{
+const marketEl=document.getElementById('marketFilter');
+if(marketEl) marketEl.addEventListener('change',()=>{
+ page=0;
+ scanPage().catch(e=>alert(e.message));
+});
+['techFilter','sortMode'].forEach(id=>{
  const el=document.getElementById(id);
  if(el) el.addEventListener('change',renderResults);
 });

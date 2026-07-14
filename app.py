@@ -2,14 +2,16 @@
 from flask import Flask, jsonify, request, send_from_directory
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import requests, os, re
+import requests, os, re, time
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
 TWSE_DAILY = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
 TWSE_INST = "https://openapi.twse.com.tw/v1/fund/T86"
 TPEX_DAILY = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"
-UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/6.2)"}
+UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/7.2)"}
+_UNIVERSE_CACHE = {"time": 0.0, "data": []}
+_UNIVERSE_TTL = 900
 
 def num(v):
     try:
@@ -79,11 +81,33 @@ def tpex_universe():
         })
     return out
 
-def all_universe():
+def all_universe(force=False):
+    now = time.time()
+    if not force and _UNIVERSE_CACHE["data"] and now - _UNIVERSE_CACHE["time"] < _UNIVERSE_TTL:
+        return _UNIVERSE_CACHE["data"]
+
     merged = {}
-    for item in twse_universe() + tpex_universe():
+    # 上市失敗時保留既有快取，不讓 API 回傳 HTML 錯誤頁。
+    try:
+        twse = twse_universe()
+    except Exception:
+        twse = []
+    try:
+        tpex = tpex_universe()
+    except Exception:
+        tpex = []
+
+    for item in twse + tpex:
         merged[item["code"]] = item
-    return sorted(merged.values(), key=lambda x: x["code"])
+
+    data = sorted(merged.values(), key=lambda x: x["code"])
+    if data:
+        _UNIVERSE_CACHE["time"] = now
+        _UNIVERSE_CACHE["data"] = data
+        return data
+    if _UNIVERSE_CACHE["data"]:
+        return _UNIVERSE_CACHE["data"]
+    raise RuntimeError("上市／上櫃股票名單暫時無法取得")
 
 def institutional_map():
     try:
@@ -468,12 +492,12 @@ def home():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V7.1", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V7.2", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
     try:
-        return jsonify(all_universe())
+        return jsonify(all_universe(force=request.args.get("force") == "1"))
     except Exception as e:
         return jsonify(error=str(e)), 502
 
@@ -482,15 +506,18 @@ def scan():
     body = request.get_json(silent=True) or {}
     period = body.get("period", "day")
     offset = max(0, int(body.get("offset", 0)))
-    limit = min(40, max(1, int(body.get("limit", 20))))
+    limit = min(20, max(1, int(body.get("limit", 12))))
+    market = str(body.get("market", "all"))
 
     try:
         uni = all_universe()
+        if market in {"TWSE", "TPEx"}:
+            uni = [x for x in uni if x.get("market") == market]
         inst = institutional_map()
         batch = uni[offset:offset + limit]
         results, errors = [], []
 
-        with ThreadPoolExecutor(max_workers=4) as ex:
+        with ThreadPoolExecutor(max_workers=3) as ex:
             futs = {ex.submit(analyze, x["code"], x["name"], period, inst): x for x in batch}
             for f in as_completed(futs):
                 stock_info = futs[f]
@@ -507,6 +534,7 @@ def scan():
         return jsonify({
             "ok": True,
             "period": period,
+            "market": market,
             "offset": offset,
             "limit": limit,
             "total": len(uni),

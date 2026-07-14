@@ -1,24 +1,11 @@
-# AI 台灣個股智慧選股 V7.1｜排行榜篩選版
+# AI 台灣個股智慧選股 V7.2｜修正版
 
-## 本次更新
-1. 修正內頁技術原因文字反光，改成高對比深色背景。
-2. 強化 X 關閉功能，支援 click 與手機 touch。
-3. 首頁採用精簡專業列表，細項點股票名稱後開啟。
-4. 股票清單加入上市＋上櫃，搜尋可找到 TPEx 公司。
-5. 掃描結果預設依 AI 分數由高至低排序。
-6. 新增技術條件選擇：
-   - MACD 黃金交叉／翻正
-   - KD 黃金交叉
-   - RSI 向上
-   - 量能放大
-   - 站上均線
-   - 買入燈號
-   - 賣出燈號
-7. 新增 AI 選股排行榜，顯示目前已掃描股票前 30 名。
-8. 可依上市、上櫃、分數、量比與代號篩選排序。
+本版修正：
+1. 上櫃掃描改為指定市場分批掃描，股票名單加入快取，降低 Render timeout。
+2. 前端遇到 Render HTML 錯誤頁時顯示可理解訊息，不再出現 Unexpected token `<`。
+3. X 關閉加入 inline onclick、click 與 touch 多重保護。
+4. 掃描結果改成參考圖的六欄排列：代號名稱、收盤、燈號、AI、法人主力、量能。
+5. 上市／上櫃切換會重新從第 1 頁掃描。
+6. 固定 Render 服務名稱 `ai-taiwan-stock-screener-v7`，直接覆蓋原服務，不新增服務。
 
-## 部署
-1. 將解壓後全部檔案上傳 GitHub。
-2. Commit changes。
-3. Render Blueprint → Manual Sync。
-4. Approve：`ai-taiwan-stock-screener-v7-1`
+部署：覆蓋 GitHub 檔案並 Commit，Render 會自動部署；或 Manual Deploy → Deploy latest commit。

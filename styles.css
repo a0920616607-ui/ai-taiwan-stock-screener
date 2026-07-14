@@ -449,3 +449,21 @@ body.modal-open{overflow:hidden}
  .rank-stock b{font-size:14px}
  .rank-signal{font-size:12px}
 }
+
+/* V7.2 修正版 */
+.scan-title-row{display:grid;grid-template-columns:auto auto 1fr;align-items:center}
+.scan-subtitle{color:#7890a8;font-size:11px;white-space:nowrap}
+.pro-list-head,.pro-stock-row{
+ grid-template-columns:minmax(100px,1.25fr) 62px 60px 48px minmax(102px,1.15fr) 72px;
+}
+.pro-flow{gap:1px}.pro-flow span{white-space:nowrap}
+.flow-tag{display:block;font-style:normal;font-size:8px;line-height:1.2;border-radius:5px;padding:2px 4px;margin-top:2px;color:transparent}
+.flow-tag.tag-buy{color:#fff;background:#9f2025}.flow-tag.tag-sell{color:#fff;background:#087b31}
+.detail-overlay.open{display:flex!important}
+.detail-sheet{position:relative}
+.icon-close{position:relative!important;z-index:10000!important;cursor:pointer!important;touch-action:manipulation!important;-webkit-tap-highlight-color:transparent}
+.reason-panel,.reason-panel li{background:#0b1b2c!important;color:#e6eef7!important;opacity:1!important;filter:none!important;text-shadow:none!important}
+@media(max-width:430px){
+ .pro-list-head,.pro-stock-row{grid-template-columns:minmax(84px,1.2fr) 50px 48px 36px minmax(74px,.95fr) 54px}
+ .scan-title-row{grid-template-columns:auto 1fr}.scan-subtitle{display:none}.scan-title-row input{grid-column:1/-1}
+}
