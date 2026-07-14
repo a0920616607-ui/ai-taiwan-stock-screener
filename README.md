@@ -1,11 +1,16 @@
-# AI 台灣個股智慧選股 V7.2｜修正版
+# AI 台灣個股智慧選股 V8.0｜法人資料優先版
 
-本版修正：
-1. 上櫃掃描改為指定市場分批掃描，股票名單加入快取，降低 Render timeout。
-2. 前端遇到 Render HTML 錯誤頁時顯示可理解訊息，不再出現 Unexpected token `<`。
-3. X 關閉加入 inline onclick、click 與 touch 多重保護。
-4. 掃描結果改成參考圖的六欄排列：代號名稱、收盤、燈號、AI、法人主力、量能。
-5. 上市／上櫃切換會重新從第 1 頁掃描。
-6. 固定 Render 服務名稱 `ai-taiwan-stock-screener-v7`，直接覆蓋原服務，不新增服務。
+## 本版先完成兩個核心
+1. 首頁改採 V6.5 的緊湊字體與欄寬，手機右側量能不再被切掉。
+2. 法人欄改接官方每日買賣超：
+   - 上市：TWSE T86 官方資料
+   - 上櫃：TPEx OpenAPI／官方 dailyTrade JSON 後備
 
-部署：覆蓋 GitHub 檔案並 Commit，Render 會自動部署；或 Manual Deploy → Deploy latest commit。
+## 資料定義
+- 法人數字：官方買賣超，畫面換算成「張」。
+- 主力數字：目前仍是估算分數，不假裝成真實張數。
+- 若官方來源當下無資料，畫面顯示「待更新」，法人分維持中性，不用 0 冒充真實資料。
+
+## 部署
+直接覆蓋原 GitHub 檔案並 Commit。Render 服務名稱固定：
+`ai-taiwan-stock-screener-v7`

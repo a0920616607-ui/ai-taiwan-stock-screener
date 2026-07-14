@@ -9,7 +9,13 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 TWSE_DAILY = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
 TWSE_INST = "https://openapi.twse.com.tw/v1/fund/T86"
 TPEX_DAILY = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"
-UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/7.2)"}
+TPEX_INST_OPENAPI_CANDIDATES = [
+    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_3insti_daily_trading",
+    "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
+    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_institutional_investors_trading",
+]
+TPEX_INST_LEGACY = "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade"
+UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/8.0)"}
 _UNIVERSE_CACHE = {"time": 0.0, "data": []}
 _UNIVERSE_TTL = 900
 
@@ -109,40 +115,122 @@ def all_universe(force=False):
         return _UNIVERSE_CACHE["data"]
     raise RuntimeError("上市／上櫃股票名單暫時無法取得")
 
-def institutional_map():
-    try:
-        r = requests.get(TWSE_INST, headers=UA, timeout=30)
-        r.raise_for_status()
-        rows = r.json()
-    except Exception:
-        return {}
+def _empty_inst(source="none", available=False):
+    return {
+        "foreignNet": 0, "trustNet": 0, "dealerNet": 0,
+        "institutionalNet": 0, "institutionalSource": source,
+        "institutionalAvailable": available
+    }
 
+
+def _parse_institutional_rows(rows, source):
     out = {}
-    for x in rows:
-        code = str(pick(x, ["證券代號", "Code"]) or "").strip()
+    for x in rows or []:
+        if not isinstance(x, dict):
+            continue
+        code = str(pick(x, [
+            "證券代號", "Code", "SecuritiesCompanyCode", "股票代號", "代號"
+        ]) or "").strip()
         if not re.fullmatch(r"\d{4}", code):
             continue
+
         foreign = num(pick(x, [
-            "外陸資買賣超股數(不含外資自營商)",
-            "外資及陸資買賣超股數",
-            "外資買賣超股數"
+            "外陸資買賣超股數(不含外資自營商)", "外資及陸資買賣超股數",
+            "外資買賣超股數", "ForeignInvestorsNetBuySell", "ForeignNet"
         ])) or 0
-        trust = num(pick(x, ["投信買賣超股數"])) or 0
-        dealer = num(pick(x, [
-            "自營商買賣超股數",
-            "自營商買賣超股數(自行買賣)",
-            "自營商買賣超股數(避險)"
+        trust = num(pick(x, [
+            "投信買賣超股數", "InvestmentTrustNetBuySell", "TrustNet"
         ])) or 0
-        total = num(pick(x, ["三大法人買賣超股數"]))
+
+        dealer_total = num(pick(x, [
+            "自營商買賣超股數", "DealerNetBuySell", "DealerNet"
+        ]))
+        if dealer_total is None:
+            dealer_self = num(pick(x, ["自營商買賣超股數(自行買賣)", "DealerSelfNetBuySell"])) or 0
+            dealer_hedge = num(pick(x, ["自營商買賣超股數(避險)", "DealerHedgeNetBuySell"])) or 0
+            dealer_total = dealer_self + dealer_hedge
+
+        total = num(pick(x, [
+            "三大法人買賣超股數", "三大法人買賣超股數合計",
+            "TotalNetBuySell", "InstitutionalNet"
+        ]))
         if total is None:
-            total = foreign + trust + dealer
+            total = foreign + trust + dealer_total
+
         out[code] = {
             "foreignNet": round(foreign),
             "trustNet": round(trust),
-            "dealerNet": round(dealer),
-            "institutionalNet": round(total)
+            "dealerNet": round(dealer_total),
+            "institutionalNet": round(total),
+            "institutionalSource": source,
+            "institutionalAvailable": True
         }
     return out
+
+
+def twse_institutional_map():
+    try:
+        r = requests.get(TWSE_INST, headers=UA, timeout=30)
+        r.raise_for_status()
+        payload = r.json()
+        return _parse_institutional_rows(payload, "TWSE T86 官方")
+    except Exception:
+        return {}
+
+
+def _tpex_legacy_rows(payload):
+    # TPEx legacy JSON 可能以 tables[0].fields + data 回傳。
+    tables = payload.get("tables") if isinstance(payload, dict) else None
+    if not tables:
+        return []
+    table = tables[0] or {}
+    fields = table.get("fields") or table.get("columns") or []
+    data = table.get("data") or []
+    rows = []
+    for item in data:
+        if isinstance(item, dict):
+            rows.append(item)
+        elif isinstance(item, list) and fields:
+            rows.append({str(fields[i]): item[i] for i in range(min(len(fields), len(item)))})
+    return rows
+
+
+def tpex_institutional_map():
+    # 先試櫃買 OpenAPI；若路徑版本不同，再退回官方 dailyTrade JSON。
+    for url in TPEX_INST_OPENAPI_CANDIDATES:
+        try:
+            r = requests.get(url, headers=UA, timeout=25)
+            if r.status_code != 200 or "json" not in (r.headers.get("content-type") or "").lower():
+                continue
+            parsed = _parse_institutional_rows(r.json(), "TPEx OpenAPI 官方")
+            if parsed:
+                return parsed
+        except Exception:
+            pass
+
+    try:
+        today = datetime.now().strftime("%Y/%m/%d")
+        r = requests.get(
+            TPEX_INST_LEGACY,
+            params={"type": "Daily", "date": today, "id": "", "response": "json"},
+            headers=UA, timeout=30
+        )
+        r.raise_for_status()
+        payload = r.json()
+        rows = _tpex_legacy_rows(payload)
+        parsed = _parse_institutional_rows(rows, "TPEx dailyTrade 官方")
+        if parsed:
+            return parsed
+    except Exception:
+        pass
+    return {}
+
+
+def institutional_map():
+    merged = {}
+    merged.update(twse_institutional_map())
+    merged.update(tpex_institutional_map())
+    return merged
 
 
 def yahoo_chart(code, period="day"):
@@ -362,7 +450,8 @@ def analyze(code, name, period, inst):
 
     # 2) 法人分數 0~100
     inst_data = inst.get(code, {
-        "foreignNet": 0, "trustNet": 0, "dealerNet": 0, "institutionalNet": 0
+        "foreignNet": 0, "trustNet": 0, "dealerNet": 0, "institutionalNet": 0,
+        "institutionalSource": "尚未取得", "institutionalAvailable": False
     })
     foreign_net = inst_data["foreignNet"]
     trust_net = inst_data["trustNet"]
@@ -371,6 +460,8 @@ def analyze(code, name, period, inst):
 
     institutional_score = 50
     institutional_reasons = []
+    if not inst_data.get("institutionalAvailable"):
+        institutional_reasons.append("官方法人資料暫未取得，本項不加減分")
 
     if institutional_net > 0:
         institutional_score += 18
@@ -483,7 +574,10 @@ def analyze(code, name, period, inst):
         "institutionalReasons": institutional_reasons,
         "mainForceReasons": main_force_reasons,
         **inst_data,
-        "mainForceStatus": main_force_status
+        "mainForceStatus": main_force_status,
+        "institutionalSource": inst_data.get("institutionalSource", "尚未取得"),
+        "institutionalAvailable": bool(inst_data.get("institutionalAvailable")),
+        "institutionalUnit": "股"
     }
 
 @app.get("/")
@@ -492,7 +586,7 @@ def home():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V7.2", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V8.0", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():

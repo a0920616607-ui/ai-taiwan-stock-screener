@@ -467,3 +467,49 @@ body.modal-open{overflow:hidden}
  .pro-list-head,.pro-stock-row{grid-template-columns:minmax(84px,1.2fr) 50px 48px 36px minmax(74px,.95fr) 54px}
  .scan-title-row{grid-template-columns:auto 1fr}.scan-subtitle{display:none}.scan-title-row input{grid-column:1/-1}
 }
+
+
+/* V8.0：V6.5 手機字體與欄寬比例 */
+.official-data-note{display:block;color:#7f95ad;font-size:11px;margin-left:auto;white-space:nowrap}
+.scan-title-row{display:grid!important;grid-template-columns:auto 1fr auto!important;align-items:center!important;gap:10px!important}
+.scan-title-row input{min-width:0!important}
+.pro-list-head,.pro-stock-row{
+ grid-template-columns:minmax(88px,1.15fr) 56px 56px 42px minmax(102px,1.25fr) 64px!important;
+ gap:4px!important;
+}
+.pro-list-head{font-size:10px!important;padding:9px 4px!important}
+.pro-stock-row{min-height:82px!important;padding:9px 4px!important}
+.pro-stock-name b{font-size:16px!important;line-height:1.05!important}
+.pro-stock-name span{font-size:13px!important;margin-top:2px!important}
+.pro-stock-name small{font-size:9px!important;margin-top:2px!important}
+.pro-close{font-size:15px!important}
+.pro-signal-icon{width:34px!important;height:34px!important;font-size:22px!important;border-width:3px!important}
+.pro-signal small{font-size:10px!important}
+.pro-ai{font-size:20px!important}
+.pro-flow{font-size:9px!important;line-height:1.4!important;min-width:0!important}
+.pro-flow span{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.pro-flow b{font-size:11px!important}
+.pro-volume{min-width:0!important;overflow:hidden!important}
+.pro-volume small{font-size:8px!important;white-space:normal!important;line-height:1.1!important}
+.pro-volume .volume-bars{transform:scale(.82);transform-origin:center bottom}
+
+@media(max-width:430px){
+ main{padding-left:5px!important;padding-right:5px!important}
+ .card{padding-left:7px!important;padding-right:7px!important}
+ .official-data-note{grid-column:1/-1;margin:0;font-size:9px}
+ .scan-title-row input{grid-column:1/-1!important}
+ .pro-list-head,.pro-stock-row{
+  grid-template-columns:minmax(80px,1.1fr) 49px 49px 34px minmax(84px,1.05fr) 50px!important;
+  gap:2px!important;
+ }
+ .pro-list-head{font-size:8px!important}
+ .pro-stock-row{min-height:76px!important;padding:8px 2px!important}
+ .pro-stock-name b{font-size:15px!important}
+ .pro-stock-name span{font-size:12px!important}
+ .pro-close{font-size:14px!important}
+ .pro-signal-icon{width:31px!important;height:31px!important;font-size:20px!important}
+ .pro-ai{font-size:18px!important}
+ .pro-flow{font-size:8px!important}
+ .pro-flow b{font-size:9px!important}
+ .pro-volume small{font-size:7px!important}
+}

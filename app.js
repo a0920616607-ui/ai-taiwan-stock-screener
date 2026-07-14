@@ -196,6 +196,7 @@ function renderResults(){
   const hint=getVolumeHint(x);
   const ai=Number(x.aiScore??x.score??0);
   const institutional=Number(x.institutionalNet??0);
+  const instAvailable=Boolean(x.institutionalAvailable);
 
   return `<article class="pro-stock-row row-${signal.type}">
     <button class="pro-stock-name" onclick="openStockDetailByCode('${x.code}')" type="button">
@@ -214,7 +215,7 @@ function renderResults(){
     <div class="pro-ai signal-text-${signal.type}">${ai}</div>
 
     <div class="pro-flow">
-      <span>法人 <b class="${institutional>0?'flow-buy':institutional<0?'flow-sell':''}">${formatShares(institutional)}</b></span>
+      <span>法人 <b class="${institutional>0?'flow-buy':institutional<0?'flow-sell':''}">${instAvailable?formatShares(institutional):'待更新'}</b></span>
       <span>主力 <b>${x.mainForceScore??'-'}</b></span><em class="flow-tag ${signal.type==='buy'?'tag-buy':signal.type==='sell'?'tag-sell':''}">${signal.type==='buy'?'買入量能放大':signal.type==='sell'?'賣出量能放大':''}</em>
     </div>
 
@@ -229,10 +230,14 @@ function renderResults(){
  $('#watchCount').textContent=new Set(Object.values(groups).flat()).size;
 }
 function formatShares(v){
- const n=Number(v||0);
- if(Math.abs(n)>=1000000)return `${(n/1000000).toFixed(1)}M`;
- if(Math.abs(n)>=1000)return `${(n/1000).toFixed(1)}K`;
- return String(Math.round(n));
+ const shares=Number(v||0);
+ const lots=shares/1000;
+ const sign=lots>0?'+':'';
+ if(!Number.isFinite(lots))return '-';
+ if(Math.abs(lots)>=10000)return `${sign}${(lots/10000).toFixed(1)}萬張`;
+ if(Math.abs(lots)>=1000)return `${sign}${Math.round(lots).toLocaleString()}張`;
+ if(Math.abs(lots)>=10)return `${sign}${Math.round(lots)}張`;
+ return `${sign}${lots.toFixed(1)}張`;
 }
 function labelPeriod(p){return p==='day'?'日線':p==='week'?'週線':'月線'}
 
@@ -463,6 +468,7 @@ window.openStockDetailByCode=function(code){
  $('#detailVolume').innerHTML=`<span class="volume-bars"><i></i><i></i><i></i></span><strong>${hint.text}</strong>`;
 
  $('#detailTechReasons').innerHTML=(x.technicalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
+ $('#detailMarket').textContent+=`｜法人：${x.institutionalSource||'尚未取得'}`;
  $('#detailInstReasons').innerHTML=(x.institutionalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>目前沒有法人加減分資料</li>';
  $('#detailMainReasons').innerHTML=(x.mainForceReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
 
