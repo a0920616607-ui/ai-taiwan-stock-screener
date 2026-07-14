@@ -492,3 +492,18 @@ body.modal-open{overflow:hidden}
 .reason-tabs{position:relative;z-index:100}
 .reason-panel{display:none}
 .reason-panel.active{display:block}
+
+/* V8.0 上櫃與頁籤修正 */
+.reason-tabs{
+  position:relative;
+  z-index:10000;
+  pointer-events:auto!important;
+}
+.reason-tab{
+  position:relative;
+  z-index:10001;
+  pointer-events:auto!important;
+  touch-action:manipulation;
+}
+.reason-panel{display:none!important}
+.reason-panel.active{display:block!important}

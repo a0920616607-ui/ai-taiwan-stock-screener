@@ -44,3 +44,12 @@ Render Service Name 固定不變：
 - X 關閉改為 onclick、click、touchend、pointerup 多重處理。
 - 法人分析與主力分析改用事件委派，提升 Android Chrome 點擊穩定性。
 - 前端快取版本更新為 802，避免載入舊 JavaScript。
+
+
+## V8.0 上櫃與頁籤修正
+- 上櫃或股票名單 API 若回傳 Render 錯誤頁，不再直接解析成 JSON。
+- 前端會顯示正常中文錯誤，不再出現 Unexpected token '<'。
+- `/api/universe` 與 `/api/scan` 保證回傳 JSON。
+- 法人分析與主力分析改為直接 onclick 切換，避免 Android Chrome 點擊失效。
+- 頁籤與內容面板使用明確 display 切換。
+- 快取版本更新至 803。

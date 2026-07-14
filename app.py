@@ -661,6 +661,13 @@ def analyze(code, name, period, inst):
         "mainForceStatus": main_force_status
     }
 
+
+def api_error(message, status=500, **extra):
+    payload = {"ok": False, "error": message}
+    payload.update(extra)
+    return jsonify(payload), status
+
+
 @app.get("/")
 def home():
     return send_from_directory(".", "index.html")

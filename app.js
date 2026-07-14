@@ -1,3 +1,26 @@
+
+async function fetchJsonSafe(url, options={}){
+  const response = await fetch(url, options);
+  const contentType = response.headers.get('content-type') || '';
+  const raw = await response.text();
+
+  if (!contentType.includes('application/json')) {
+    throw new Error('伺服器暫時回傳非資料頁面，請稍後重試。');
+  }
+
+  let data;
+  try{
+    data = raw ? JSON.parse(raw) : {};
+  }catch(_){
+    throw new Error('資料格式錯誤，請重新整理後再試。');
+  }
+
+  if(!response.ok || data.ok === false){
+    throw new Error(data.error || `連線失敗（${response.status}）`);
+  }
+  return data;
+}
+
 const $=s=>document.querySelector(s);
 let universe=safeLoadUniverse(),results=[],allScannedResults=[],period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
 function safeLoadUniverse(){
@@ -30,12 +53,12 @@ async function syncUniverse(){
  $('#progressText').textContent='同步股票名單中…';
  const r=await fetch('/api/universe'),d=await r.json();
  if(!r.ok) throw Error(d.error||'同步失敗');
- universe=d;
+ universe=rows;
 localStorage.setItem('v63-universe',JSON.stringify(d));
 localStorage.setItem('v63-last-sync',new Date().toISOString());
 page=0;
 $('#total').textContent=d.length;
-$('#progressText').textContent=`已同步 ${d.length} 檔上市＋上櫃股票`;
+$('#progressText').textContent=`已同步 ${rows.length} 檔上市＋上櫃股票`;
  renderWatch();
 }
 async function scanPage(){
@@ -507,12 +530,7 @@ if(reasonTabs){
    p.classList.toggle('active',p.dataset.reasonPanel===key);
   });
  });
- reasonTabs.addEventListener('touchend',e=>{
-  const btn=e.target.closest('.reason-tab');
-  if(!btn)return;
-  e.preventDefault();
-  btn.click();
- },{passive:false});
+ 
 }
 
 
@@ -560,3 +578,22 @@ async function refreshInstitutionalStatus(){
  }
 }
 refreshInstitutionalStatus();
+
+
+window.switchReasonTab=function(key, clicked){
+  const detail=document.getElementById('stockDetail');
+  if(!detail)return false;
+
+  detail.querySelectorAll('.reason-tab').forEach(btn=>{
+    const active=btn.dataset.reason===key;
+    btn.classList.toggle('active',active);
+    btn.setAttribute('aria-selected',active?'true':'false');
+  });
+
+  detail.querySelectorAll('.reason-panel').forEach(panel=>{
+    const active=panel.dataset.reasonPanel===key;
+    panel.classList.toggle('active',active);
+    panel.style.display=active?'block':'none';
+  });
+  return false;
+};
