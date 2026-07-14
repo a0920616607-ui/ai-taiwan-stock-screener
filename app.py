@@ -425,7 +425,7 @@ def home():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V6.9", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V7.0", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():

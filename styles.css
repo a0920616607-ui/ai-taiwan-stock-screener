@@ -269,3 +269,123 @@ main{padding-top:10px}
  .mobile-signal-icon{width:34px;height:34px;font-size:22px}
  .mobile-ai{font-size:20px}
 }
+
+/* V7.0 正式版：手機專業列表與完整細項 */
+*{box-sizing:border-box}
+html,body{max-width:100%;overflow-x:hidden}
+main{width:min(100%,760px);margin:0 auto;padding-left:14px;padding-right:14px}
+.card,.panel,.scan-card{width:100%;max-width:100%}
+.scan-title-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.scan-title-row h3{margin:0;white-space:nowrap}
+.scan-title-row input{min-width:0;flex:1}
+
+.pro-list-head,
+.pro-stock-row{
+ display:grid;
+ grid-template-columns:minmax(104px,1.4fr) 64px 58px 48px minmax(92px,1fr) 74px;
+ gap:6px;
+ align-items:center;
+}
+.pro-list-head{
+ padding:10px 6px;
+ color:#8fa0b5;
+ font-weight:700;
+ border-bottom:1px solid #29425d;
+ font-size:11px;
+}
+.pro-result-list{width:100%;overflow:hidden}
+.pro-stock-row{
+ min-height:96px;
+ padding:12px 6px;
+ border-bottom:1px solid #243c55;
+ background:#081828;
+}
+.pro-stock-row.row-buy{border-left:4px solid #ff3b3b}
+.pro-stock-row.row-sell{border-left:4px solid #22c638}
+.pro-stock-row.row-neutral{border-left:4px solid #70839a}
+
+.pro-stock-name{
+ border:0;background:none;padding:0;color:#fff;text-align:left;
+ display:flex;flex-direction:column;align-items:flex-start;cursor:pointer;min-width:0
+}
+.pro-stock-name b{font-size:18px;color:#36bdf5}
+.pro-stock-name span{font-size:15px;margin-top:3px;white-space:normal;line-height:1.2}
+.pro-close{font-size:17px;font-weight:800;text-align:center}
+.pro-signal{display:flex;flex-direction:column;align-items:center;font-weight:800}
+.pro-signal-icon{
+ width:38px;height:38px;border:3px solid currentColor;border-radius:50%;
+ display:flex;align-items:center;justify-content:center;font-size:25px;line-height:1
+}
+.pro-signal small{font-size:11px;margin-top:2px}
+.pro-ai{font-size:23px;font-weight:900;text-align:center}
+.pro-flow{display:flex;flex-direction:column;font-size:11px;line-height:1.55}
+.pro-flow b{font-size:13px}
+.pro-volume{display:flex;flex-direction:column;align-items:center;text-align:center}
+.pro-volume small{font-size:10px;line-height:1.15;margin-top:2px}
+
+/* Detail overlay: avoids dialog bugs on Android browsers */
+body.modal-open{overflow:hidden}
+.detail-overlay{
+ position:fixed;inset:0;z-index:9999;
+ display:none;align-items:stretch;justify-content:flex-end;
+ background:rgba(0,0,0,.76);
+}
+.detail-overlay.open{display:flex}
+.detail-sheet{
+ width:min(100%,760px);height:100dvh;max-height:100dvh;
+ background:#071422;color:#fff;border-left:1px solid #294763;
+ display:flex;flex-direction:column;overflow:hidden
+}
+.sticky-head{
+ flex:0 0 auto;position:relative;z-index:2;
+ padding:18px;background:#071422;border-bottom:1px solid #294763
+}
+.icon-close{
+ flex:0 0 48px;width:48px;height:48px;border-radius:50%;
+ background:#10243a;border:1px solid #34526e;color:#fff;
+ font-size:31px;font-weight:800;line-height:1;cursor:pointer
+}
+.detail-scroll{
+ flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+ padding:16px 18px calc(30px + env(safe-area-inset-bottom))
+}
+.detail-top-grid{margin-top:0}
+.reason-tabs{
+ position:sticky;top:0;z-index:1;
+ display:grid;grid-template-columns:repeat(3,1fr);
+ gap:6px;margin-top:16px;padding:8px 0;background:#071422
+}
+.reason-tab{
+ background:#0d2136;border:1px solid #294763;color:#95a5ba;
+ border-radius:10px;padding:10px 5px
+}
+.reason-tab.active{color:#36bdf5;border-color:#36bdf5}
+.reason-panel{
+ display:none;background:#0d2136;border:1px solid #294763;
+ border-radius:14px;padding:16px;margin-top:8px
+}
+.reason-panel.active{display:block}
+.reason-panel ul{padding-left:22px;color:#9cacc0;line-height:1.65}
+.detail-actions{padding-bottom:12px}
+
+@media(max-width:430px){
+ main{padding-left:8px;padding-right:8px}
+ .card{padding-left:10px;padding-right:10px}
+ .pro-list-head,
+ .pro-stock-row{
+  grid-template-columns:minmax(88px,1.35fr) 53px 50px 37px minmax(70px,.9fr) 58px;
+  gap:3px
+ }
+ .pro-list-head{font-size:9px;padding-left:3px;padding-right:3px}
+ .pro-stock-row{padding-left:3px;padding-right:3px}
+ .pro-stock-name b{font-size:16px}
+ .pro-stock-name span{font-size:13px}
+ .pro-close{font-size:15px}
+ .pro-signal-icon{width:33px;height:33px;font-size:21px}
+ .pro-ai{font-size:19px}
+ .pro-flow{font-size:9px}
+ .pro-flow b{font-size:11px}
+ .pro-volume small{font-size:8px}
+ .detail-scroll{padding-left:12px;padding-right:12px}
+ .detail-top-grid{grid-template-columns:80px 1fr 1fr;gap:8px}
+}

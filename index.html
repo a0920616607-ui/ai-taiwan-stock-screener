@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V6.9</title>
-<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=69">
+<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V7.0</title>
+<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=70">
 </head><body>
-<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V6.9</b></h1></div><span id="health">連線中</span></header>
+<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V7.0</b></h1></div><span id="health">連線中</span></header>
 <main>
 <nav class="tabs">
 <button class="tab active" data-p="scanPanel">AI 選股</button>
@@ -28,19 +28,31 @@
 <div><span>股票總數</span><b id="total">0</b></div><div><span>已掃描</span><b id="scanned">0</b></div>
 <div><span>高分候選</span><b id="high">0</b></div><div><span>自選股</span><b id="watchCount">0</b></div>
 </div>
-<section class="card"><div class="title"><h3>掃描結果</h3><input id="search" placeholder="搜尋代號或名稱"></div>
-<div class="mobile-list-head">
-      <span>代號／名稱</span>
-      <span>收盤</span>
-      <span>燈號</span>
-      <span>AI</span>
-      <span>法人／主力</span>
-      <span>量能</span>
-    </div>
-    <div id="resultRows" class="mobile-result-list"></div>
-<p id="empty">請先同步股票名單，再開始掃描。</p>
-<div class="pager"><button id="prev">上一頁</button><span id="pageLabel">第 1 頁</span><button id="next">下一頁</button></div>
-</section></section>
+
+<section class="card scan-card">
+  <div class="scan-title-row">
+    <h3>掃描結果</h3>
+    <input id="search" placeholder="搜尋結果">
+  </div>
+
+  <div class="pro-list-head">
+    <span>代號／名稱</span>
+    <span>收盤價</span>
+    <span>燈號</span>
+    <span>AI總分</span>
+    <span>法人／主力</span>
+    <span>量能</span>
+  </div>
+  <div id="resultRows" class="pro-result-list"></div>
+
+  <p id="empty">請先同步股票名單，再開始掃描。</p>
+  <div class="pager">
+    <button id="prev">上一頁</button>
+    <span id="pageLabel">第 1 頁</span>
+    <button id="next">下一頁</button>
+  </div>
+</section>
+</section>
 
 
 <section id="singlePanel" class="panel">
@@ -125,67 +137,86 @@
         <button id="confirmNo" class="secondary">取消</button>
       </div>
     </dialog>
-<script src="/app.js?v=69"></script>
-<dialog id="stockDetailDialog" class="stock-detail-dialog">
-  <div class="dialog-head">
-    <div>
-      <small id="detailMarket">—</small>
-      <h3 id="detailTitle">股票細項</h3>
-    </div>
-    <button id="closeDetail" class="icon-close">×</button>
-  </div>
+<script src="/app.js?v=70"></script>
 
-  <div class="detail-top-grid">
-    <div class="detail-signal-box">
-      <div id="detailSignal" class="big-signal signal-neutral">
-        <span class="signal-circle">—</span>
-        <b>中性</b>
+
+
+<div id="detailOverlay" class="detail-overlay" aria-hidden="true">
+  <section class="detail-sheet" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <div class="dialog-head sticky-head">
+      <div>
+        <small id="detailMarket">—</small>
+        <h3 id="detailTitle">股票細項</h3>
+      </div>
+      <button id="closeDetail" class="icon-close" type="button" aria-label="關閉">×</button>
+    </div>
+
+    <div class="detail-scroll">
+      <div class="detail-top-grid">
+        <div class="detail-signal-box">
+          <div id="detailSignal" class="big-signal signal-neutral">
+            <span class="signal-circle">—</span>
+            <b>中性</b>
+          </div>
+        </div>
+        <div class="detail-ai">
+          <span>AI總分</span>
+          <strong id="detailAi">-</strong>
+        </div>
+        <div class="detail-close">
+          <span>收盤價</span>
+          <strong id="detailClose">-</strong>
+        </div>
+      </div>
+
+      <div class="score-mini-grid detail-score-grid">
+        <div><span>技術</span><b id="detailTech">-</b></div>
+        <div><span>法人</span><b id="detailInst">-</b></div>
+        <div><span>主力</span><b id="detailMain">-</b></div>
+      </div>
+
+      <div class="flow-grid">
+        <div><span>三大法人</span><b id="detailInstNet">-</b></div>
+        <div><span>外資</span><b id="detailForeign">-</b></div>
+        <div><span>投信</span><b id="detailTrust">-</b></div>
+        <div><span>自營商</span><b id="detailDealer">-</b></div>
+      </div>
+
+      <div class="indicator-row">
+        <span>K/D <b id="detailKD">-</b></span>
+        <span>RSI <b id="detailRSI">-</b></span>
+        <span>MACD <b id="detailMACD">-</b></span>
+        <span>量比 <b id="detailVR">-</b></span>
+      </div>
+
+      <div id="detailVolume" class="volume-alert hint-flat">
+        <span class="volume-bars"><i></i><i></i><i></i></span>
+        <strong>量能平穩</strong>
+      </div>
+
+      <div class="reason-tabs">
+        <button type="button" class="reason-tab active" data-reason="tech">技術分析</button>
+        <button type="button" class="reason-tab" data-reason="inst">法人分析</button>
+        <button type="button" class="reason-tab" data-reason="main">主力分析</button>
+      </div>
+
+      <div class="reason-panels">
+        <section class="reason-panel active" data-reason-panel="tech">
+          <h4>技術原因</h4><ul id="detailTechReasons"></ul>
+        </section>
+        <section class="reason-panel" data-reason-panel="inst">
+          <h4>法人原因</h4><ul id="detailInstReasons"></ul>
+        </section>
+        <section class="reason-panel" data-reason-panel="main">
+          <h4>主力原因</h4><ul id="detailMainReasons"></ul>
+        </section>
+      </div>
+
+      <div class="detail-actions">
+        <button id="detailAddWatch" type="button">加入自選股</button>
       </div>
     </div>
-    <div class="detail-ai">
-      <span>AI總分</span>
-      <strong id="detailAi">-</strong>
-    </div>
-    <div class="detail-close">
-      <span>收盤價</span>
-      <strong id="detailClose">-</strong>
-    </div>
-  </div>
-
-  <div class="score-mini-grid detail-score-grid">
-    <div><span>技術</span><b id="detailTech">-</b></div>
-    <div><span>法人</span><b id="detailInst">-</b></div>
-    <div><span>主力</span><b id="detailMain">-</b></div>
-  </div>
-
-  <div class="flow-grid">
-    <div><span>三大法人</span><b id="detailInstNet">-</b></div>
-    <div><span>外資</span><b id="detailForeign">-</b></div>
-    <div><span>投信</span><b id="detailTrust">-</b></div>
-    <div><span>自營商</span><b id="detailDealer">-</b></div>
-  </div>
-
-  <div class="indicator-row">
-    <span>K/D <b id="detailKD">-</b></span>
-    <span>RSI <b id="detailRSI">-</b></span>
-    <span>MACD <b id="detailMACD">-</b></span>
-    <span>量比 <b id="detailVR">-</b></span>
-  </div>
-
-  <div id="detailVolume" class="volume-alert hint-flat">
-    <span class="volume-bars"><i></i><i></i><i></i></span>
-    <strong>量能平穩</strong>
-  </div>
-
-  <div class="detail-actions">
-    <button id="detailAddWatch">加入自選股</button>
-  </div>
-
-  <div class="reason-columns">
-    <div><h4>技術原因</h4><ul id="detailTechReasons"></ul></div>
-    <div><h4>法人原因</h4><ul id="detailInstReasons"></ul></div>
-    <div><h4>主力原因</h4><ul id="detailMainReasons"></ul></div>
-  </div>
-</dialog>
+  </section>
+</div>
 
 </body></html>

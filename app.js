@@ -85,35 +85,60 @@ function inWatch(code){return Object.values(groups).some(a=>a.includes(code))}
 function groupOfCode(code){return Object.keys(groups).find(g=>groups[g].includes(code))||null}
 function getSignal(x){
  const ai=Number(x.aiScore??x.score??0);
- const inst=Number(x.institutionalNet??0);
- const foreign=Number(x.foreignNet??0);
+ const tech=Number(x.technicalScore??0);
+ const instScore=Number(x.institutionalScore??50);
  const main=Number(x.mainForceScore??50);
+ const instNet=Number(x.institutionalNet??0);
+ const foreign=Number(x.foreignNet??0);
+ const macd=Number(x.MACD??0);
+ const k=Number(x.K??0);
+ const d=Number(x.D??0);
 
- if(ai>=65 && (inst>0 || foreign>0) && main>=60){
+ // 資料來源尚未提供法人張數時，仍以技術、主力及 AI 分數判斷，
+ // 避免所有股票因法人淨額為 0 而全部顯示中性。
+ const buyPoints =
+   (ai >= 65 ? 2 : ai >= 58 ? 1 : 0) +
+   (tech >= 65 ? 2 : tech >= 55 ? 1 : 0) +
+   (main >= 60 ? 1 : 0) +
+   (instScore >= 60 ? 1 : 0) +
+   (macd > 0 ? 1 : 0) +
+   (k > d ? 1 : 0) +
+   ((instNet > 0 || foreign > 0) ? 1 : 0);
+
+ const sellPoints =
+   (ai <= 42 ? 2 : ai <= 50 ? 1 : 0) +
+   (tech <= 40 ? 2 : tech <= 50 ? 1 : 0) +
+   (main <= 40 ? 1 : 0) +
+   (instScore <= 40 ? 1 : 0) +
+   (macd < 0 ? 1 : 0) +
+   (k < d ? 1 : 0) +
+   ((instNet < 0 || foreign < 0) ? 1 : 0);
+
+ if(buyPoints >= 5 && buyPoints > sellPoints){
   return {type:'buy',label:'買入',icon:'↑'};
  }
- if(ai<=45 && inst<0 && foreign<0 && main<=40){
+ if(sellPoints >= 5 && sellPoints > buyPoints){
   return {type:'sell',label:'賣出',icon:'↓'};
  }
  return {type:'neutral',label:'中性',icon:'—'};
 }
+
 function getVolumeHint(x){
  const vr=Number(x.volumeRatio??0);
- const inst=Number(x.institutionalNet??0);
- const foreign=Number(x.foreignNet??0);
- const main=Number(x.mainForceScore??50);
+ const signal=getSignal(x);
 
- if(vr>=1.2 && (inst>0 || foreign>0) && main>=60){
+ if(vr>=1.2 && signal.type==='buy'){
   return {type:'buy',text:'買入量能放大'};
  }
- if(vr>=1.2 && inst<0 && foreign<0 && main<=40){
+ if(vr>=1.2 && signal.type==='sell'){
   return {type:'sell',text:'賣出量能放大'};
  }
  if(vr>=1.2){
   return {type:'volume',text:'量能放大'};
  }
- return {type:'flat',text:'平穩'};
+ return {type:'flat',text:'量能平穩'};
 }
+
 function renderResults(){
  const q=$('#search').value.trim();
  const a=results.filter(x=>!q||x.code.includes(q)||x.name.includes(q));
@@ -125,27 +150,27 @@ function renderResults(){
   const ai=Number(x.aiScore??x.score??0);
   const institutional=Number(x.institutionalNet??0);
 
-  return `<article class="mobile-stock-row row-${signal.type}">
-    <button class="mobile-stock-name" onclick="openStockDetail(${idx})">
+  return `<article class="pro-stock-row row-${signal.type}">
+    <button class="pro-stock-name" onclick="openStockDetail(${idx})" type="button">
       <b>${x.code}</b>
       <span>${x.name}</span>
     </button>
 
-    <div class="mobile-close">${x.close??'-'}</div>
+    <div class="pro-close">${x.close??'-'}</div>
 
-    <div class="mobile-signal signal-${signal.type}">
-      <span class="mobile-signal-icon">${signal.icon}</span>
+    <div class="pro-signal signal-${signal.type}">
+      <span class="pro-signal-icon">${signal.icon}</span>
       <small>${signal.label}</small>
     </div>
 
-    <div class="mobile-ai signal-text-${signal.type}">${ai}</div>
+    <div class="pro-ai signal-text-${signal.type}">${ai}</div>
 
-    <div class="mobile-flow">
+    <div class="pro-flow">
       <span>法人 <b class="${institutional>0?'flow-buy':institutional<0?'flow-sell':''}">${formatShares(institutional)}</b></span>
       <span>主力 <b>${x.mainForceScore??'-'}</b></span>
     </div>
 
-    <div class="mobile-volume hint-${hint.type}">
+    <div class="pro-volume hint-${hint.type}">
       <span class="volume-bars"><i></i><i></i><i></i></span>
       <small>${hint.text}</small>
     </div>
@@ -354,6 +379,7 @@ if(universe.length){
 }
 
 
+
 let detailStock=null;
 
 window.openStockDetail=function(index){
@@ -391,24 +417,51 @@ window.openStockDetail=function(index){
  $('#detailVolume').innerHTML=`<span class="volume-bars"><i></i><i></i><i></i></span><strong>${hint.text}</strong>`;
 
  $('#detailTechReasons').innerHTML=(x.technicalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
- $('#detailInstReasons').innerHTML=(x.institutionalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
+ $('#detailInstReasons').innerHTML=(x.institutionalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>目前沒有法人加減分資料</li>';
  $('#detailMainReasons').innerHTML=(x.mainForceReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
 
  $('#detailAddWatch').textContent=inWatch(x.code)?'管理自選股':'加入自選股';
- $('#stockDetailDialog').showModal();
+
+ document.querySelectorAll('.reason-tab').forEach((b,i)=>b.classList.toggle('active',i===0));
+ document.querySelectorAll('.reason-panel').forEach((p,i)=>p.classList.toggle('active',i===0));
+
+ const overlay=$('#detailOverlay');
+ overlay.classList.add('open');
+ overlay.setAttribute('aria-hidden','false');
+ document.body.classList.add('modal-open');
 }
+
+function closeStockDetail(){
+ const overlay=$('#detailOverlay');
+ overlay.classList.remove('open');
+ overlay.setAttribute('aria-hidden','true');
+ document.body.classList.remove('modal-open');
+}
+
 function setFlowValue(selector,value){
  const el=$(selector);
  const n=Number(value||0);
  el.textContent=formatShares(n);
  el.className=n>0?'flow-buy':n<0?'flow-sell':'';
 }
-$('#closeDetail').onclick=()=>$('#stockDetailDialog').close();
-$('#detailAddWatch').onclick=()=>{
+
+$('#closeDetail').addEventListener('click',closeStockDetail);
+$('#detailOverlay').addEventListener('click',e=>{
+ if(e.target===$('#detailOverlay')) closeStockDetail();
+});
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape') closeStockDetail();
+});
+$('#detailAddWatch').addEventListener('click',()=>{
  if(!detailStock)return;
- $('#stockDetailDialog').close();
+ closeStockDetail();
  chooseGroup(detailStock.code);
-};
-$('#stockDetailDialog').addEventListener('click',e=>{
- if(e.target===$('#stockDetailDialog')) $('#stockDetailDialog').close();
+});
+
+document.querySelectorAll('.reason-tab').forEach(btn=>{
+ btn.addEventListener('click',()=>{
+  const key=btn.dataset.reason;
+  document.querySelectorAll('.reason-tab').forEach(b=>b.classList.toggle('active',b===btn));
+  document.querySelectorAll('.reason-panel').forEach(p=>p.classList.toggle('active',p.dataset.reasonPanel===key));
+ });
 });
