@@ -1,2 +1,23 @@
 *{box-sizing:border-box}:root{--bg:#06101d;--card:#0b1828;--card2:#102238;--line:#203754;--text:#edf4ff;--muted:#91a6be;--accent:#24c8ff;--good:#28d49c}
 body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,"Microsoft JhengHei",sans-serif;padding-bottom:30px}header{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;padding:16px 5%;background:#071421ed;border-bottom:1px solid var(--line)}small{color:var(--accent);letter-spacing:.18em}h1{margin:5px 0;font-size:22px}h1 b{font-size:12px;color:var(--accent)}main{max-width:1120px;margin:auto;padding:16px}.card,.stats>div{background:var(--card);border:1px solid var(--line);border-radius:18px}.hero{padding:24px;display:flex;justify-content:space-between;align-items:center}.hero h2{font-size:34px;margin:0 0 8px}.hero p{color:var(--muted)}.hero strong{display:block;font-size:48px;color:var(--accent);text-align:center}.hero span{color:var(--muted);font-size:12px}.tabs,.main-actions,.periods,.pager,.group-tabs{display:flex;gap:10px;flex-wrap:wrap}.tabs{margin:16px 0}.tab,.period,#prev,#next{background:var(--card2);color:var(--muted);border:1px solid var(--line)}button{padding:12px 16px;border:0;border-radius:12px;background:linear-gradient(135deg,#24c8ff,#675cff);color:white;font-weight:700}.active{color:white!important;background:linear-gradient(135deg,#24c8ff,#675cff)!important}.panel{display:none}.panel.active{display:block}.main-actions button{flex:1;font-size:17px}.periods,.progress{padding:16px;margin:14px 0;align-items:center}.progress>div{display:flex;justify-content:space-between;color:var(--muted)}progress{width:100%;height:14px;margin-top:10px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}.stats>div{padding:16px}.stats span{color:var(--muted);font-size:12px}.stats b{display:block;font-size:26px;margin-top:5px}.card{padding:18px}.title{display:flex;justify-content:space-between;align-items:center;gap:10px}.title input{max-width:250px;width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:white}.table{overflow:auto}table{width:100%;border-collapse:collapse;min-width:920px}th,td{text-align:left;padding:12px;border-bottom:1px solid var(--line);font-size:13px}th{color:var(--muted)}.star{background:none;color:#7890aa;padding:4px;font-size:21px}.star.on{color:#ffbf4b}.score{color:var(--accent);font-weight:bold}.good,#health{color:var(--good)}#empty{text-align:center;padding:35px;color:var(--muted)}.pager{justify-content:center;align-items:center;margin-top:15px}.group-tab{background:var(--card2);border:1px solid var(--line)}.watch-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:15px}.watch-card{background:var(--card2);border:1px solid var(--line);padding:15px;border-radius:14px}.watch-card p,.guide p{color:var(--muted)}dialog{background:var(--card);color:white;border:1px solid var(--line);border-radius:16px;min-width:280px}#groupChoices button{display:block;width:100%;margin:8px 0}.note{padding:14px;border-left:3px solid #ffbf4b;background:#ffbf4b12}@media(max-width:720px){.stats{grid-template-columns:repeat(2,1fr)}.hero h2{font-size:27px}.watch-grid{grid-template-columns:1fr}}
+.watch-title{align-items:flex-start}
+.watch-tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.secondary{background:var(--card2)!important;border:1px solid var(--line)!important}
+.danger{background:#8b2635!important;border:1px solid #d05467!important}
+.group-tab{position:relative;padding-right:34px}
+.group-tab .group-count{opacity:.75}
+.group-tab .mini-delete{position:absolute;right:5px;top:50%;transform:translateY(-50%);padding:3px 8px;border-radius:8px;background:#8b2635;color:#fff;font-size:13px}
+.watch-card{position:relative}
+.watch-card h3{padding-right:44px;margin-top:0}
+.watch-card .remove-stock{position:absolute;right:12px;top:12px;width:34px;height:34px;padding:0;border-radius:50%;background:#8b2635;font-size:18px}
+.watch-card .move-stock{margin-right:8px;background:var(--card2);border:1px solid var(--line)}
+.watch-card .watch-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+#groupDialogHint{color:var(--muted);font-size:13px}
+#groupChoices{margin:12px 0}
+#groupChoices button{display:block;width:100%;margin:8px 0;text-align:left}
+.confirm-actions{display:flex;gap:10px;justify-content:flex-end}
+@media(max-width:720px){
+  .watch-title{display:block}
+  .watch-tools{justify-content:flex-start;margin-top:12px}
+  .watch-tools button{flex:1;min-width:105px}
+}

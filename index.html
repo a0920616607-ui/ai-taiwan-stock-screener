@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V6</title>
+<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V6.1</title>
 <link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css">
 </head><body>
-<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V6</b></h1></div><span id="health">連線中</span></header>
+<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V6.1</b></h1></div><span id="health">連線中</span></header>
 <main>
 <section class="hero card"><div><h2>真實資料掃描</h2><p>不使用示範資料、不需要 CSV；自動取得行情並支援日、週、月週期。</p></div><div><strong id="match">0</strong><span>符合條件</span></div></section>
 
@@ -37,7 +37,14 @@
 
 <section id="watchPanel" class="panel">
 <section class="card">
-<div class="title"><h3>自選股分類</h3><button id="addGroup">新增分類</button></div>
+<div class="title watch-title">
+      <h3>自選股分類</h3>
+      <div class="watch-tools">
+        <button id="addGroup">新增分類</button>
+        <button id="renameGroup" class="secondary">重新命名</button>
+        <button id="deleteGroup" class="danger">刪除分類</button>
+      </div>
+    </div>
 <div id="groups" class="group-tabs"></div>
 <div id="watchCards" class="watch-grid"></div>
 </section></section>
@@ -48,5 +55,19 @@
 <div class="note">上市每日名單使用證交所公開資料；歷史行情由自動歷史行情來源取得。首次掃描需要較久，免費 Render 休眠後也可能等待約 30～60 秒。</div>
 </section></section>
 </main>
-<dialog id="groupDialog"><h3>選擇自選分類</h3><div id="groupChoices"></div><button onclick="this.closest('dialog').close()">取消</button></dialog>
+<dialog id="groupDialog">
+      <h3 id="groupDialogTitle">選擇自選分類</h3>
+      <p id="groupDialogHint">加入後可在「自選股」頁面移除或更換分類。</p>
+      <div id="groupChoices"></div>
+      <button id="removeAllWatch" class="danger">從全部自選股移除</button>
+      <button class="secondary" onclick="this.closest('dialog').close()">取消</button>
+    </dialog>
+    <dialog id="confirmDialog">
+      <h3 id="confirmTitle">確認刪除</h3>
+      <p id="confirmText"></p>
+      <div class="confirm-actions">
+        <button id="confirmYes" class="danger">確認刪除</button>
+        <button id="confirmNo" class="secondary">取消</button>
+      </div>
+    </dialog>
 <script src="/app.js"></script></body></html>
