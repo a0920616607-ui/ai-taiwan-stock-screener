@@ -1,5 +1,11 @@
 const $=s=>document.querySelector(s);
-let universe=[],results=[],period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null;
+let universe=safeLoadUniverse(),results=[],period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null;
+function safeLoadUniverse(){
+ try{
+  const u=JSON.parse(localStorage.getItem('v63-universe')||'[]');
+  return Array.isArray(u)?u:[];
+ }catch(e){return []}
+}
 let groups=safeLoadGroups();
 let currentGroup=Object.keys(groups)[0]||'觀察';
 
@@ -24,7 +30,12 @@ async function syncUniverse(){
  $('#progressText').textContent='同步股票名單中…';
  const r=await fetch('/api/universe'),d=await r.json();
  if(!r.ok) throw Error(d.error||'同步失敗');
- universe=d;page=0;$('#total').textContent=d.length;$('#progressText').textContent=`已同步 ${d.length} 檔上市股票`;
+ universe=d;
+localStorage.setItem('v63-universe',JSON.stringify(d));
+localStorage.setItem('v63-last-sync',new Date().toISOString());
+page=0;
+$('#total').textContent=d.length;
+$('#progressText').textContent=`已同步 ${d.length} 檔上市股票`;
  renderWatch();
 }
 async function scanPage(){
@@ -79,14 +90,15 @@ function renderResults(){
  <td><button title="${inWatch(x.code)?'管理自選股':'加入自選股'}" class="star ${inWatch(x.code)?'on':''}" onclick="chooseGroup('${x.code}')">★</button></td>
  <td><b>${x.name}</b><br>${x.code}</td>
  <td>${labelPeriod(x.period)}</td>
- <td class="score">${x.score}</td>
+ <td class="score">${x.aiScore??x.score}</td>
+ <td>${x.technicalScore??'-'}</td>
+ <td class="${x.institutionalScore>=70?'good':x.institutionalScore<=35?'bad':''}">${x.institutionalScore??'-'}</td>
+ <td class="${x.mainForceScore>=70?'good':x.mainForceScore<=35?'bad':''}">${x.mainForceScore??'-'}<br><small>${x.mainForceStatus||''}</small></td>
  <td>${x.close}</td>
  <td class="${x.K>x.D?'good':''}">${x.K??'-'}/${x.D??'-'}</td>
  <td>${x.RSI??'-'}</td>
  <td>${x.MACD??'-'}</td>
  <td>${x.volumeRatio??'-'}</td>
- <td class="${x.institutionalNet>0?'good':x.institutionalNet<0?'bad':''}">${formatShares(x.institutionalNet)}</td>
- <td class="${x.mainForceScore>=70?'good':x.mainForceScore<=35?'bad':''}">${x.mainForceStatus}<br>${x.mainForceScore}</td>
  <td>${x.status||'-'}</td>
  </tr>`).join('');
 
@@ -222,3 +234,9 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
 });
 fetch('/api/health').then(r=>r.json()).then(()=>$('#health').textContent='雲端正常').catch(()=>$('#health').textContent='連線異常');
 renderGroups();renderWatch();renderResults();
+
+if(universe.length){
+ $('#total').textContent=universe.length;
+ const last=localStorage.getItem('v63-last-sync');
+ $('#progressText').textContent=`已載入 ${universe.length} 檔股票名單${last?'｜上次同步 '+new Date(last).toLocaleString():''}`;
+}

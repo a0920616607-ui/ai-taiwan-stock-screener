@@ -191,6 +191,7 @@ def kd(rows, n=9):
 def sma(a, n):
     return None if len(a) < n else sum(a[-n:]) / n
 
+
 def analyze(code, name, period, inst):
     rows = yahoo_chart(code, period)
     if len(rows) < 30:
@@ -217,47 +218,124 @@ def analyze(code, name, period, inst):
         K[i] > D[i] and K[p] <= D[p]
     )
 
-    score = 0
-    reasons = []
-    if kcross:
-        score += 18; reasons.append("KD 黃金交叉 +18")
-    if D[i] is not None and D[i] <= 35:
-        score += 10; reasons.append("KD 低檔 +10")
-    if R[i] is not None and R[p] is not None and R[i] > R[p]:
-        score += 10; reasons.append("RSI 向上 +10")
-    if R[i] is not None and R[i] >= 45:
-        score += 7; reasons.append("RSI 站上 45 +7")
-    if hist[i] > 0:
-        score += 15; reasons.append("MACD 柱翻正 +15")
-    elif hist[i] > hist[p]:
-        score += 9; reasons.append("MACD 改善 +9")
-    if ma5 and c[i] > ma5:
-        score += 10; reasons.append("站上短期均線 +10")
-    if ma10 and c[i] > ma10:
-        score += 7; reasons.append("站上中期均線 +7")
-    if ma20 and c[i] > ma20:
-        score += 7; reasons.append("站上長期均線 +7")
-    if vr >= 1.05:
-        score += 8; reasons.append("量能放大 +8")
+    # 1) 技術分析分數 0~100
+    technical_score = 0
+    technical_reasons = []
 
+    if kcross:
+        technical_score += 20
+        technical_reasons.append("KD 黃金交叉 +20")
+    if D[i] is not None and D[i] <= 35:
+        technical_score += 10
+        technical_reasons.append("KD 低檔 +10")
+    if R[i] is not None and R[p] is not None and R[i] > R[p]:
+        technical_score += 10
+        technical_reasons.append("RSI 向上 +10")
+    if R[i] is not None and R[i] >= 50:
+        technical_score += 10
+        technical_reasons.append("RSI 站上 50 +10")
+    elif R[i] is not None and R[i] >= 45:
+        technical_score += 6
+        technical_reasons.append("RSI 站上 45 +6")
+    if hist[i] > 0:
+        technical_score += 18
+        technical_reasons.append("MACD 柱翻正 +18")
+    elif hist[i] > hist[p]:
+        technical_score += 10
+        technical_reasons.append("MACD 改善 +10")
+    if ma5 and c[i] > ma5:
+        technical_score += 10
+        technical_reasons.append("站上短期均線 +10")
+    if ma10 and c[i] > ma10:
+        technical_score += 7
+        technical_reasons.append("站上中期均線 +7")
+    if ma20 and c[i] > ma20:
+        technical_score += 7
+        technical_reasons.append("站上長期均線 +7")
+    if vr >= 1.5:
+        technical_score += 8
+        technical_reasons.append("量能明顯放大 +8")
+    elif vr >= 1.05:
+        technical_score += 5
+        technical_reasons.append("量能溫和放大 +5")
+
+    technical_score = max(0, min(100, round(technical_score)))
+
+    # 2) 法人分數 0~100
     inst_data = inst.get(code, {
         "foreignNet": 0, "trustNet": 0, "dealerNet": 0, "institutionalNet": 0
     })
+    foreign_net = inst_data["foreignNet"]
+    trust_net = inst_data["trustNet"]
+    dealer_net = inst_data["dealerNet"]
     institutional_net = inst_data["institutionalNet"]
-    if institutional_net > 0:
-        score += 8; reasons.append("法人買超 +8")
-    elif institutional_net < 0:
-        score -= 5; reasons.append("法人賣超 -5")
 
-    # 主力代理分數：法人 + 量比 + 漲跌 + MACD。
+    institutional_score = 50
+    institutional_reasons = []
+
+    if institutional_net > 0:
+        institutional_score += 18
+        institutional_reasons.append("三大法人合計買超 +18")
+    elif institutional_net < 0:
+        institutional_score -= 18
+        institutional_reasons.append("三大法人合計賣超 -18")
+
+    if foreign_net > 0:
+        institutional_score += 12
+        institutional_reasons.append("外資買超 +12")
+    elif foreign_net < 0:
+        institutional_score -= 10
+        institutional_reasons.append("外資賣超 -10")
+
+    if trust_net > 0:
+        institutional_score += 12
+        institutional_reasons.append("投信買超 +12")
+    elif trust_net < 0:
+        institutional_score -= 8
+        institutional_reasons.append("投信賣超 -8")
+
+    if dealer_net > 0:
+        institutional_score += 8
+        institutional_reasons.append("自營商買超 +8")
+    elif dealer_net < 0:
+        institutional_score -= 6
+        institutional_reasons.append("自營商賣超 -6")
+
+    institutional_score = max(0, min(100, round(institutional_score)))
+
+    # 3) 主力代理分數 0~100
+    # 無官方統一「主力」欄位，使用法人方向、量比、漲跌與 MACD 建立代理模型。
     main_force_score = 50
-    if institutional_net > 0: main_force_score += 20
-    elif institutional_net < 0: main_force_score -= 20
-    if vr >= 1.5: main_force_score += 15
-    elif vr >= 1.05: main_force_score += 8
-    if price_change > 1: main_force_score += 10
-    elif price_change < -1: main_force_score -= 10
-    if hist[i] > 0: main_force_score += 5
+    main_force_reasons = []
+
+    if institutional_net > 0:
+        main_force_score += 20
+        main_force_reasons.append("法人方向偏多 +20")
+    elif institutional_net < 0:
+        main_force_score -= 20
+        main_force_reasons.append("法人方向偏空 -20")
+
+    if vr >= 1.5:
+        main_force_score += 15
+        main_force_reasons.append("量比 ≥ 1.5 +15")
+    elif vr >= 1.05:
+        main_force_score += 8
+        main_force_reasons.append("量比放大 +8")
+
+    if price_change > 1:
+        main_force_score += 10
+        main_force_reasons.append("價格動能偏多 +10")
+    elif price_change < -1:
+        main_force_score -= 10
+        main_force_reasons.append("價格動能偏空 -10")
+
+    if hist[i] > 0:
+        main_force_score += 5
+        main_force_reasons.append("MACD 動能正向 +5")
+    elif hist[i] < hist[p]:
+        main_force_score -= 5
+        main_force_reasons.append("MACD 動能轉弱 -5")
+
     main_force_score = max(0, min(100, round(main_force_score)))
 
     main_force_status = (
@@ -266,22 +344,44 @@ def analyze(code, name, period, inst):
         else "主力中性"
     )
 
-    score = max(0, min(100, round(score)))
+    # 三合一 AI 總分：技術 50% + 法人 30% + 主力 20%
+    ai_score = round(
+        technical_score * 0.50 +
+        institutional_score * 0.30 +
+        main_force_score * 0.20
+    )
+    ai_score = max(0, min(100, ai_score))
+
+    status = (
+        "強勢候選" if ai_score >= 90
+        else "積極觀察" if ai_score >= 80
+        else "轉強觀察" if ai_score >= 70
+        else "等待確認" if ai_score >= 60
+        else "暫不列入"
+    )
 
     return {
-        "code": code, "name": name, "period": period,
-        "date": rows[-1]["date"], "close": round(c[i], 2),
-        "score": score,
+        "code": code,
+        "name": name,
+        "period": period,
+        "date": rows[-1]["date"],
+        "close": round(c[i], 2),
+        "score": ai_score,
+        "aiScore": ai_score,
+        "technicalScore": technical_score,
+        "institutionalScore": institutional_score,
+        "mainForceScore": main_force_score,
         "K": round(K[i], 1) if K[i] is not None else None,
         "D": round(D[i], 1) if D[i] is not None else None,
         "RSI": round(R[i], 1) if R[i] is not None else None,
         "MACD": round(hist[i], 2),
         "volumeRatio": round(vr, 2),
-        "status": "強勢候選" if score >= 80 else "轉強觀察" if score >= 65 else "初步成形",
+        "status": status,
         "entry": "回測短期均線量縮止跌後分批" if ma5 and c[i] >= ma5 else "先等重新站回短期均線",
-        "reasons": reasons,
+        "technicalReasons": technical_reasons,
+        "institutionalReasons": institutional_reasons,
+        "mainForceReasons": main_force_reasons,
         **inst_data,
-        "mainForceScore": main_force_score,
         "mainForceStatus": main_force_status
     }
 
@@ -291,7 +391,7 @@ def home():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V6.2", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V6.3", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():

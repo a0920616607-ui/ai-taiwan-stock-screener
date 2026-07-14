@@ -23,3 +23,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,"Microsof
 }
 
 .bad{color:#ff6f7d}.table table{min-width:1180px}
+
+.score{font-size:18px}
+.table table{min-width:1320px}
