@@ -157,3 +157,50 @@ main{padding-top:10px}
  .flow-grid{grid-template-columns:repeat(2,1fr)}
  .indicator-row{grid-template-columns:repeat(2,1fr)}
 }
+
+/* V6.8 精簡列表＋點擊細項 */
+.compact-table table{min-width:760px}
+.compact-table th,.compact-table td{padding:12px 10px;vertical-align:middle}
+.stock-link{
+ display:flex;flex-direction:column;align-items:flex-start;
+ background:none;border:0;color:#fff;padding:0;text-align:left;cursor:pointer
+}
+.stock-link b{font-size:18px}
+.stock-link span{font-size:15px;color:#dfe8f3}
+.stock-link:hover b,.stock-link:focus b{color:#36bdf5}
+
+.stock-detail-dialog{
+ width:min(760px,94vw);
+ max-height:90vh;
+ overflow:auto;
+ border:1px solid #294763;
+ border-radius:22px;
+ background:#071422;
+ color:#fff;
+ padding:18px
+}
+.stock-detail-dialog::backdrop{background:rgba(0,0,0,.72)}
+.dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.dialog-head small{color:#8294aa}
+.dialog-head h3{margin:4px 0 0;font-size:26px}
+.icon-close{
+ width:42px;height:42px;border-radius:50%;
+ background:#10243a;border:1px solid #34526e;color:#fff;font-size:26px
+}
+.detail-top-grid{
+ display:grid;grid-template-columns:100px 1fr 1fr;gap:12px;align-items:center;margin-top:16px
+}
+.detail-signal-box{display:flex;justify-content:center}
+.detail-ai,.detail-close{
+ background:#0d2136;border:1px solid #294763;border-radius:14px;padding:14px;text-align:center
+}
+.detail-ai span,.detail-close span{display:block;color:#8fa0b5}
+.detail-ai strong,.detail-close strong{font-size:30px}
+.detail-score-grid{margin-top:12px}
+.detail-actions{margin-top:14px;display:flex;justify-content:flex-end}
+
+@media(max-width:560px){
+ .compact-table table{min-width:700px}
+ .detail-top-grid{grid-template-columns:82px 1fr 1fr}
+ .stock-detail-dialog{padding:14px}
+}
