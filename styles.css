@@ -21,3 +21,5 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,"Microsof
   .watch-tools{justify-content:flex-start;margin-top:12px}
   .watch-tools button{flex:1;min-width:105px}
 }
+
+.bad{color:#ff6f7d}.table table{min-width:1180px}
