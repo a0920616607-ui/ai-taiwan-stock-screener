@@ -57,7 +57,7 @@ async function scanPage(){
   $('#progress').value=100;
   $('#scanned').textContent=Math.min((page+1)*pageSize,d.total||0);
   $('#high').textContent=results.filter(x=>x.score>=80).length;
-  $('#match').textContent=results.filter(x=>x.score>=65).length;
+  if($('#match')) $('#match').textContent=results.filter(x=>x.score>=65).length;
   $('#dataDate').textContent=`資料：${d.date||'—'}`;
   $('#progressText').textContent=`第 ${page+1} 頁完成：成功 ${d.successCount||0}，失敗 ${d.errorCount||0}`;
   $('#pageLabel').textContent=`第 ${page+1} 頁 / ${Math.max(1,Math.ceil((d.total||0)/pageSize))} 頁`;
@@ -83,30 +83,72 @@ async function scanPage(){
 }
 function inWatch(code){return Object.values(groups).some(a=>a.includes(code))}
 function groupOfCode(code){return Object.keys(groups).find(g=>groups[g].includes(code))||null}
+function getSignal(x){
+ const ai=Number(x.aiScore??x.score??0);
+ const inst=Number(x.institutionalNet??0);
+ const foreign=Number(x.foreignNet??0);
+ const main=Number(x.mainForceScore??50);
+
+ if(ai>=65 && (inst>0 || foreign>0) && main>=60){
+  return {type:'buy',label:'買入',icon:'↑'};
+ }
+ if(ai<=45 && inst<0 && foreign<0 && main<=40){
+  return {type:'sell',label:'賣出',icon:'↓'};
+ }
+ return {type:'neutral',label:'中性',icon:''};
+}
+function getVolumeHint(x){
+ const vr=Number(x.volumeRatio??0);
+ const inst=Number(x.institutionalNet??0);
+ const foreign=Number(x.foreignNet??0);
+ const main=Number(x.mainForceScore??50);
+
+ if(vr>=1.2 && (inst>0 || foreign>0) && main>=60){
+  return {type:'buy',text:'買入量能放大'};
+ }
+ if(vr>=1.2 && inst<0 && foreign<0 && main<=40){
+  return {type:'sell',text:'賣出量能放大'};
+ }
+ if(vr>=1.2){
+  return {type:'volume',text:'量能放大'};
+ }
+ return {type:'flat',text:'量能平穩'};
+}
 function renderResults(){
  const q=$('#search').value.trim();
  const a=results.filter(x=>!q||x.code.includes(q)||x.name.includes(q));
- $('#body').innerHTML=a.map(x=>`<tr>
- <td><button title="${inWatch(x.code)?'管理自選股':'加入自選股'}" class="star ${inWatch(x.code)?'on':''}" onclick="chooseGroup('${x.code}')">★</button></td>
- <td><b>${x.name}</b><br>${x.code}</td>
- <td>${labelPeriod(x.period)}</td>
- <td class="score">${x.aiScore??x.score}</td>
- <td>${x.technicalScore??'-'}</td>
- <td class="${x.institutionalScore>=70?'good':x.institutionalScore<=35?'bad':''}">${x.institutionalScore??'-'}</td>
- <td class="${x.mainForceScore>=70?'good':x.mainForceScore<=35?'bad':''}">${x.mainForceScore??'-'}<br><small>${x.mainForceStatus||''}</small></td>
- <td>${x.close}</td>
- <td class="${x.K>x.D?'good':''}">${x.K??'-'}/${x.D??'-'}</td>
- <td>${x.RSI??'-'}</td>
- <td>${x.MACD??'-'}</td>
- <td>${x.volumeRatio??'-'}</td>
- <td>${x.status||'-'}</td>
- </tr>`).join('');
 
- if(a.length){
-  $('#empty').style.display='none';
- }else{
-  $('#empty').style.display='block';
- }
+ $('#body').innerHTML=a.map(x=>{
+  const signal=getSignal(x);
+  const hint=getVolumeHint(x);
+  const ai=Number(x.aiScore??x.score??0);
+  return `<tr>
+   <td><button title="${inWatch(x.code)?'管理自選股':'加入自選股'}" class="star ${inWatch(x.code)?'on':''}" onclick="chooseGroup('${x.code}')">★</button></td>
+   <td class="stock-name"><b>${x.code}</b><br><span>${x.name}</span></td>
+   <td class="close-price">${x.close??'-'}</td>
+   <td>
+    <div class="signal signal-${signal.type}">
+      ${signal.icon?`<span class="signal-icon">${signal.icon}</span>`:''}
+      <span>${signal.label}</span>
+    </div>
+   </td>
+   <td class="ai-number signal-text-${signal.type}">${ai}</td>
+   <td class="flow-cell">
+    <div>法人 <b class="${Number(x.institutionalNet)>0?'flow-buy':Number(x.institutionalNet)<0?'flow-sell':''}">${formatShares(x.institutionalNet)}</b></div>
+    <div>外資 <b class="${Number(x.foreignNet)>0?'flow-buy':Number(x.foreignNet)<0?'flow-sell':''}">${formatShares(x.foreignNet)}</b></div>
+    <div>主力 <b>${x.mainForceScore??'-'}</b></div>
+   </td>
+   <td>
+    <div class="volume-hint hint-${hint.type}">
+      <span>${hint.text}</span>
+      <span class="volume-bars"><i></i><i></i><i></i></span>
+      <small>量比 ${x.volumeRatio??'-'}</small>
+    </div>
+   </td>
+  </tr>`;
+ }).join('');
+
+ $('#empty').style.display=a.length?'none':'block';
  $('#watchCount').textContent=new Set(Object.values(groups).flat()).size;
 }
 function formatShares(v){
@@ -256,7 +298,8 @@ function renderSingleResult(x){
  $('#sRSI').textContent=x.RSI??'-';
  $('#sMACD').textContent=x.MACD??'-';
  $('#sVR').textContent=x.volumeRatio??'-';
- $('#sStatus').textContent=x.status??'-';
+ const singleSignal=getSignal(x);
+ $('#sStatus').innerHTML=`<span class="single-signal signal-${singleSignal.type}">${singleSignal.icon?singleSignal.icon+' ':''}${singleSignal.label}</span>`;
  $('#sTechReasons').innerHTML=(x.technicalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
  $('#sInstReasons').innerHTML=(x.institutionalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
  $('#sMainReasons').innerHTML=(x.mainForceReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';

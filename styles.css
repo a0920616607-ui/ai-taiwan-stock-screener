@@ -46,3 +46,44 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,"Microsof
  .score-grid,.detail-grid{grid-template-columns:repeat(2,1fr)}
  .reason-columns{grid-template-columns:1fr}
 }
+
+/* V6.6 燈號量能版 */
+main{padding-top:10px}
+.tabs{margin-top:8px}
+.signal-table table{min-width:880px}
+.signal-table th,.signal-table td{padding:13px 10px;vertical-align:middle}
+.signal-table th:first-child,.signal-table td:first-child{padding-left:4px}
+.stock-name b{font-size:17px}.stock-name span{font-size:15px}
+.close-price{font-size:17px;font-weight:700}
+.ai-number{font-size:22px;font-weight:800;text-align:center}
+
+.signal{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:58px;font-weight:800}
+.signal-icon{display:flex;width:44px;height:44px;border:4px solid currentColor;border-radius:50%;align-items:center;justify-content:center;font-size:31px;line-height:1}
+.signal-buy,.signal-text-buy{color:#ff3b3b}
+.signal-sell,.signal-text-sell{color:#22c638}
+.signal-neutral,.signal-text-neutral{color:#a5b2c3}
+.signal-neutral .signal-icon{display:none}
+.single-signal{font-size:20px;font-weight:800}
+
+.flow-cell{line-height:1.65;white-space:nowrap;color:#aebbd0}
+.flow-cell b{font-weight:800}
+.flow-buy{color:#ff4545}
+.flow-sell{color:#23c943}
+
+.volume-hint{display:flex;flex-direction:column;align-items:flex-start;gap:4px;white-space:nowrap}
+.volume-hint>span:first-child{font-weight:800}
+.volume-hint small{color:#8193aa}
+.hint-buy{color:#ff3b3b}
+.hint-sell{color:#22c638}
+.hint-volume{color:#ff7a00}
+.hint-flat{color:#9aa8ba}
+.volume-bars{display:flex;align-items:flex-end;height:25px;gap:3px}
+.volume-bars i{display:block;width:7px;border-radius:2px;background:currentColor}
+.volume-bars i:nth-child(1){height:9px}.volume-bars i:nth-child(2){height:16px}.volume-bars i:nth-child(3){height:24px}
+
+@media(max-width:720px){
+ .card{padding-left:10px;padding-right:10px}
+ .signal-table{margin-left:-4px;margin-right:-4px}
+ .signal-table table{min-width:820px}
+ .signal-table th,.signal-table td{padding-left:8px;padding-right:8px}
+}
