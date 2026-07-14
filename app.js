@@ -1,14 +1,5 @@
 const $=s=>document.querySelector(s);
-async function readJsonResponse(r){
- const text=await r.text();
- try{return JSON.parse(text)}catch(e){
-  const message=text.trim().startsWith('<')
-   ? `伺服器暫時回傳網頁錯誤（HTTP ${r.status}），請稍後重試`
-   : `資料格式錯誤（HTTP ${r.status}）`;
-  throw new Error(message);
- }
-}
-let universe=safeLoadUniverse(),results=[],allScannedResults=[],period='day',page=0,pageSize=12,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
+let universe=safeLoadUniverse(),results=[],allScannedResults=[],period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
 function safeLoadUniverse(){
  try{
   const u=JSON.parse(localStorage.getItem('v63-universe')||'[]');
@@ -37,7 +28,7 @@ function saveGroups(){
 }
 async function syncUniverse(){
  $('#progressText').textContent='同步股票名單中…';
- const r=await fetch('/api/universe'),d=await readJsonResponse(r);
+ const r=await fetch('/api/universe'),d=await r.json();
  if(!r.ok) throw Error(d.error||'同步失敗');
  universe=d;
 localStorage.setItem('v63-universe',JSON.stringify(d));
@@ -57,9 +48,9 @@ async function scanPage(){
   const r=await fetch('/api/scan',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({period,offset:page*pageSize,limit:pageSize,market:$('#marketFilter')?.value||'all'})
+   body:JSON.stringify({period,offset:page*pageSize,limit:pageSize})
   });
-  const d=await readJsonResponse(r);
+  const d=await r.json();
   if(!r.ok || d.ok===false) throw Error(d.error||'掃描失敗');
 
   results=Array.isArray(d.results)?d.results:[];
@@ -196,7 +187,6 @@ function renderResults(){
   const hint=getVolumeHint(x);
   const ai=Number(x.aiScore??x.score??0);
   const institutional=Number(x.institutionalNet??0);
-  const instAvailable=Boolean(x.institutionalAvailable);
 
   return `<article class="pro-stock-row row-${signal.type}">
     <button class="pro-stock-name" onclick="openStockDetailByCode('${x.code}')" type="button">
@@ -215,13 +205,8 @@ function renderResults(){
     <div class="pro-ai signal-text-${signal.type}">${ai}</div>
 
     <div class="pro-flow">
-      <span>法人 <b class="${institutional>0?'flow-buy':institutional<0?'flow-sell':''}">${instAvailable?formatShares(institutional):'待更新'}</b></span>
-      <span>主力 <b>${x.mainForceScore??'-'}</b></span><em class="flow-tag ${signal.type==='buy'?'tag-buy':signal.type==='sell'?'tag-sell':''}">${signal.type==='buy'?'買入量能放大':signal.type==='sell'?'賣出量能放大':''}</em>
-    </div>
-
-    <div class="pro-volume hint-${hint.type}">
-      <span class="volume-bars"><i></i><i></i><i></i></span>
-      <small>${hint.text}</small>
+      <span>法人 <b class="${institutional>0?'flow-buy':institutional<0?'flow-sell':''}">${formatShares(institutional,Boolean(x.institutionalAvailable))}</b></span>
+      <span>主力 <b>${x.mainForceScore??'-'}</b></span>
     </div>
   </article>`;
  }).join('');
@@ -229,15 +214,13 @@ function renderResults(){
  $('#empty').style.display=a.length?'none':'block';
  $('#watchCount').textContent=new Set(Object.values(groups).flat()).size;
 }
-function formatShares(v){
- const shares=Number(v||0);
- const lots=shares/1000;
- const sign=lots>0?'+':'';
- if(!Number.isFinite(lots))return '-';
- if(Math.abs(lots)>=10000)return `${sign}${(lots/10000).toFixed(1)}萬張`;
- if(Math.abs(lots)>=1000)return `${sign}${Math.round(lots).toLocaleString()}張`;
- if(Math.abs(lots)>=10)return `${sign}${Math.round(lots)}張`;
- return `${sign}${lots.toFixed(1)}張`;
+function formatShares(v, available=true){
+ if(!available)return '待更新';
+ const n=Number(v||0);
+ const lots=n/1000;
+ if(Math.abs(lots)>=10000)return `${(lots/10000).toFixed(1)}萬張`;
+ if(Math.abs(lots)>=1)return `${lots>0?'+':''}${Math.round(lots).toLocaleString()}張`;
+ return `${n>0?'+':''}${Math.round(n).toLocaleString()}股`;
 }
 function labelPeriod(p){return p==='day'?'日線':p==='week'?'週線':'月線'}
 
@@ -422,7 +405,7 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));
  b.classList.add('active');$('#'+b.dataset.p).classList.add('active');
 });
-fetch('/api/health').then(readJsonResponse).then(()=>$('#health').textContent='雲端正常').catch(()=>$('#health').textContent='連線異常');
+fetch('/api/health').then(r=>r.json()).then(()=>$('#health').textContent='雲端正常').catch(()=>$('#health').textContent='連線異常');
 renderGroups();renderWatch();renderResults();
 
 if(universe.length){
@@ -468,7 +451,6 @@ window.openStockDetailByCode=function(code){
  $('#detailVolume').innerHTML=`<span class="volume-bars"><i></i><i></i><i></i></span><strong>${hint.text}</strong>`;
 
  $('#detailTechReasons').innerHTML=(x.technicalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
- $('#detailMarket').textContent+=`｜法人：${x.institutionalSource||'尚未取得'}`;
  $('#detailInstReasons').innerHTML=(x.institutionalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>目前沒有法人加減分資料</li>';
  $('#detailMainReasons').innerHTML=(x.mainForceReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
 
@@ -483,8 +465,7 @@ window.openStockDetailByCode=function(code){
  document.body.classList.add('modal-open');
 }
 
-window.closeStockDetail=function(e){
- if(e){e.preventDefault?.();e.stopPropagation?.();}
+function closeStockDetail(){
  const overlay=$('#detailOverlay');
  overlay.classList.remove('open');
  overlay.setAttribute('aria-hidden','true');
@@ -498,17 +479,17 @@ function setFlowValue(selector,value){
  el.className=n>0?'flow-buy':n<0?'flow-sell':'';
 }
 
-$('#closeDetail').onclick=window.closeStockDetail;
-$('#closeDetail').addEventListener('touchend',e=>{e.preventDefault();window.closeStockDetail();});
+$('#closeDetail').onclick=closeStockDetail;
+$('#closeDetail').addEventListener('touchend',e=>{e.preventDefault();closeStockDetail();});
 $('#detailOverlay').addEventListener('click',e=>{
- if(e.target===$('#detailOverlay')) window.closeStockDetail();
+ if(e.target===$('#detailOverlay')) closeStockDetail();
 });
 document.addEventListener('keydown',e=>{
- if(e.key==='Escape') window.closeStockDetail();
+ if(e.key==='Escape') closeStockDetail();
 });
 $('#detailAddWatch').addEventListener('click',()=>{
  if(!detailStock)return;
- window.closeStockDetail();
+ closeStockDetail();
  chooseGroup(detailStock.code);
 });
 
@@ -540,14 +521,28 @@ function renderRanking(){
  }).join(''):'<p class="ranking-empty">請先開始 AI 掃描，排行榜才會出現資料。</p>';
 }
 
-const marketEl=document.getElementById('marketFilter');
-if(marketEl) marketEl.addEventListener('change',()=>{
- page=0;
- scanPage().catch(e=>alert(e.message));
-});
-['techFilter','sortMode'].forEach(id=>{
+['marketFilter','techFilter','sortMode'].forEach(id=>{
  const el=document.getElementById(id);
  if(el) el.addEventListener('change',renderResults);
 });
 $('#refreshRanking')?.addEventListener('click',renderRanking);
 renderRanking();
+
+async function refreshInstitutionalStatus(){
+ const el=$('#institutionalStatus');
+ if(!el)return;
+ try{
+  const r=await fetch('/api/institutional/status');
+  const d=await r.json();
+  if(!r.ok)throw Error(d.error||'法人資料狀態讀取失敗');
+  const total=Number(d.records||0);
+  const twse=Number(d.twseCount||0);
+  const tpex=Number(d.tpexCount||0);
+  el.textContent=`法人資料：官方 ${total.toLocaleString()} 檔（上市 ${twse}／上櫃 ${tpex}）`;
+  el.className=total>0?'official-status ok':'official-status warn';
+ }catch(e){
+  el.textContent='法人資料：暫時無法取得';
+  el.className='official-status warn';
+ }
+}
+refreshInstitutionalStatus();

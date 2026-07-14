@@ -450,66 +450,33 @@ body.modal-open{overflow:hidden}
  .rank-signal{font-size:12px}
 }
 
-/* V7.2 修正版 */
-.scan-title-row{display:grid;grid-template-columns:auto auto 1fr;align-items:center}
-.scan-subtitle{color:#7890a8;font-size:11px;white-space:nowrap}
-.pro-list-head,.pro-stock-row{
- grid-template-columns:minmax(100px,1.25fr) 62px 60px 48px minmax(102px,1.15fr) 72px;
+/* V8.0：V6.5 字體比例、移除首頁量能、縮窄燈號色線 */
+.pro-list-head,
+.pro-stock-row{
+ grid-template-columns:minmax(104px,1.45fr) 62px 54px 44px minmax(112px,1.15fr);
 }
-.pro-flow{gap:1px}.pro-flow span{white-space:nowrap}
-.flow-tag{display:block;font-style:normal;font-size:8px;line-height:1.2;border-radius:5px;padding:2px 4px;margin-top:2px;color:transparent}
-.flow-tag.tag-buy{color:#fff;background:#9f2025}.flow-tag.tag-sell{color:#fff;background:#087b31}
-.detail-overlay.open{display:flex!important}
-.detail-sheet{position:relative}
-.icon-close{position:relative!important;z-index:10000!important;cursor:pointer!important;touch-action:manipulation!important;-webkit-tap-highlight-color:transparent}
-.reason-panel,.reason-panel li{background:#0b1b2c!important;color:#e6eef7!important;opacity:1!important;filter:none!important;text-shadow:none!important}
-@media(max-width:430px){
- .pro-list-head,.pro-stock-row{grid-template-columns:minmax(84px,1.2fr) 50px 48px 36px minmax(74px,.95fr) 54px}
- .scan-title-row{grid-template-columns:auto 1fr}.scan-subtitle{display:none}.scan-title-row input{grid-column:1/-1}
-}
-
-
-/* V8.0：V6.5 手機字體與欄寬比例 */
-.official-data-note{display:block;color:#7f95ad;font-size:11px;margin-left:auto;white-space:nowrap}
-.scan-title-row{display:grid!important;grid-template-columns:auto 1fr auto!important;align-items:center!important;gap:10px!important}
-.scan-title-row input{min-width:0!important}
-.pro-list-head,.pro-stock-row{
- grid-template-columns:minmax(88px,1.15fr) 56px 56px 42px minmax(102px,1.25fr) 64px!important;
- gap:4px!important;
-}
-.pro-list-head{font-size:10px!important;padding:9px 4px!important}
-.pro-stock-row{min-height:82px!important;padding:9px 4px!important}
-.pro-stock-name b{font-size:16px!important;line-height:1.05!important}
-.pro-stock-name span{font-size:13px!important;margin-top:2px!important}
-.pro-stock-name small{font-size:9px!important;margin-top:2px!important}
-.pro-close{font-size:15px!important}
-.pro-signal-icon{width:34px!important;height:34px!important;font-size:22px!important;border-width:3px!important}
-.pro-signal small{font-size:10px!important}
-.pro-ai{font-size:20px!important}
-.pro-flow{font-size:9px!important;line-height:1.4!important;min-width:0!important}
-.pro-flow span{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
-.pro-flow b{font-size:11px!important}
-.pro-volume{min-width:0!important;overflow:hidden!important}
-.pro-volume small{font-size:8px!important;white-space:normal!important;line-height:1.1!important}
-.pro-volume .volume-bars{transform:scale(.82);transform-origin:center bottom}
+.pro-list-head{font-size:10px}
+.pro-stock-row{min-height:82px;border-left-width:2px!important}
+.pro-stock-name b{font-size:16px}
+.pro-stock-name span{font-size:13px}
+.pro-close{font-size:15px}
+.pro-signal-icon{width:32px;height:32px;border-width:2px;font-size:20px}
+.pro-signal small{font-size:9px}
+.pro-ai{font-size:19px}
+.pro-flow{font-size:10px;line-height:1.45}
+.pro-flow b{font-size:11px}
+.official-status{display:block;margin-top:4px;color:#91a6be;font-size:11px}
+.official-status.ok{color:#25d39a}
+.official-status.warn{color:#ffbf4b}
 
 @media(max-width:430px){
- main{padding-left:5px!important;padding-right:5px!important}
- .card{padding-left:7px!important;padding-right:7px!important}
- .official-data-note{grid-column:1/-1;margin:0;font-size:9px}
- .scan-title-row input{grid-column:1/-1!important}
- .pro-list-head,.pro-stock-row{
-  grid-template-columns:minmax(80px,1.1fr) 49px 49px 34px minmax(84px,1.05fr) 50px!important;
-  gap:2px!important;
+ .pro-list-head,
+ .pro-stock-row{
+  grid-template-columns:minmax(86px,1.35fr) 50px 45px 34px minmax(84px,1fr);
  }
- .pro-list-head{font-size:8px!important}
- .pro-stock-row{min-height:76px!important;padding:8px 2px!important}
- .pro-stock-name b{font-size:15px!important}
- .pro-stock-name span{font-size:12px!important}
- .pro-close{font-size:14px!important}
- .pro-signal-icon{width:31px!important;height:31px!important;font-size:20px!important}
- .pro-ai{font-size:18px!important}
- .pro-flow{font-size:8px!important}
- .pro-flow b{font-size:9px!important}
- .pro-volume small{font-size:7px!important}
+ .pro-stock-name b{font-size:15px}
+ .pro-stock-name span{font-size:12px}
+ .pro-close{font-size:14px}
+ .pro-signal-icon{width:29px;height:29px;font-size:18px}
+ .pro-ai{font-size:17px}
 }

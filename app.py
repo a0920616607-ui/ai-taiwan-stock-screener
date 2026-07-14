@@ -1,23 +1,16 @@
 
 from flask import Flask, jsonify, request, send_from_directory
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import requests, os, re, time
+import requests, os, re
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
 TWSE_DAILY = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
-TWSE_INST = "https://openapi.twse.com.tw/v1/fund/T86"
+TWSE_INST = "https://www.twse.com.tw/rwd/zh/fund/T86"
 TPEX_DAILY = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"
-TPEX_INST_OPENAPI_CANDIDATES = [
-    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_3insti_daily_trading",
-    "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
-    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_institutional_investors_trading",
-]
-TPEX_INST_LEGACY = "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade"
-UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/8.0)"}
-_UNIVERSE_CACHE = {"time": 0.0, "data": []}
-_UNIVERSE_TTL = 900
+TPEX_INST = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"
+UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/6.2)"}
 
 def num(v):
     try:
@@ -87,149 +80,229 @@ def tpex_universe():
         })
     return out
 
-def all_universe(force=False):
-    now = time.time()
-    if not force and _UNIVERSE_CACHE["data"] and now - _UNIVERSE_CACHE["time"] < _UNIVERSE_TTL:
-        return _UNIVERSE_CACHE["data"]
-
+def all_universe():
     merged = {}
-    # 上市失敗時保留既有快取，不讓 API 回傳 HTML 錯誤頁。
-    try:
-        twse = twse_universe()
-    except Exception:
-        twse = []
-    try:
-        tpex = tpex_universe()
-    except Exception:
-        tpex = []
-
-    for item in twse + tpex:
+    for item in twse_universe() + tpex_universe():
         merged[item["code"]] = item
+    return sorted(merged.values(), key=lambda x: x["code"])
 
-    data = sorted(merged.values(), key=lambda x: x["code"])
-    if data:
-        _UNIVERSE_CACHE["time"] = now
-        _UNIVERSE_CACHE["data"] = data
-        return data
-    if _UNIVERSE_CACHE["data"]:
-        return _UNIVERSE_CACHE["data"]
-    raise RuntimeError("上市／上櫃股票名單暫時無法取得")
 
-def _empty_inst(source="none", available=False):
+_INST_CACHE = {"key": None, "data": {}, "meta": {}}
+
+def _clean_key(value):
+    return re.sub(r"[\s（）()／/、，,_\-]", "", str(value or "")).lower()
+
+def _find_value(row, include_terms, exclude_terms=()):
+    """Find a value by normalized key fragments; useful across changing official field names."""
+    for key, value in row.items():
+        nk = _clean_key(key)
+        if all(_clean_key(term) in nk for term in include_terms) and not any(
+            _clean_key(term) in nk for term in exclude_terms
+        ):
+            return value
+    return None
+
+def _today_taipei():
+    return datetime.utcnow() + timedelta(hours=8)
+
+def _to_roc_date(date_obj):
+    return f"{date_obj.year - 1911:03d}{date_obj.month:02d}{date_obj.day:02d}"
+
+def _normalize_inst_record(code, foreign, trust, dealer, total, market, data_date, source):
+    foreign = num(foreign) or 0
+    trust = num(trust) or 0
+    dealer = num(dealer) or 0
+    total_num = num(total)
+    if total_num is None:
+        total_num = foreign + trust + dealer
     return {
-        "foreignNet": 0, "trustNet": 0, "dealerNet": 0,
-        "institutionalNet": 0, "institutionalSource": source,
-        "institutionalAvailable": available
+        "foreignNet": round(foreign),
+        "trustNet": round(trust),
+        "dealerNet": round(dealer),
+        "institutionalNet": round(total_num),
+        "institutionalAvailable": True,
+        "institutionalDate": data_date or "",
+        "institutionalSource": source,
+        "institutionalMarket": market,
     }
 
+def _fetch_twse_institutional():
+    """Official TWSE T86. Walk backward to the latest trading day and cache whole-market data."""
+    now = _today_taipei()
+    for days_back in range(0, 12):
+        day = now - timedelta(days=days_back)
+        date_str = day.strftime("%Y%m%d")
+        try:
+            r = requests.get(
+                TWSE_INST,
+                params={
+                    "response": "json",
+                    "date": date_str,
+                    "selectType": "ALLBUT0999",
+                },
+                headers=UA,
+                timeout=30,
+            )
+            r.raise_for_status()
+            payload = r.json()
+            fields = payload.get("fields") or []
+            data = payload.get("data") or []
+            stat = str(payload.get("stat") or "")
+            if not data or ("很抱歉" in stat):
+                continue
 
-def _parse_institutional_rows(rows, source):
-    out = {}
-    for x in rows or []:
-        if not isinstance(x, dict):
+            rows = [dict(zip(fields, values)) for values in data]
+            out = {}
+            for row in rows:
+                code = str(_find_value(row, ["證券代號"]) or "").strip()
+                if not re.fullmatch(r"\d{4}", code):
+                    continue
+
+                foreign = _find_value(
+                    row,
+                    ["外陸資", "買賣超"],
+                    ["外資自營商"],
+                )
+                if foreign is None:
+                    foreign = _find_value(row, ["外資", "買賣超"], ["自營商"])
+
+                trust = _find_value(row, ["投信", "買賣超"])
+
+                dealer_self = _find_value(row, ["自營商", "自行買賣", "買賣超"])
+                dealer_hedge = _find_value(row, ["自營商", "避險", "買賣超"])
+                dealer_total = _find_value(
+                    row,
+                    ["自營商", "買賣超"],
+                    ["自行買賣", "避險"],
+                )
+                dealer = (
+                    (num(dealer_self) or 0) + (num(dealer_hedge) or 0)
+                    if dealer_self is not None or dealer_hedge is not None
+                    else dealer_total
+                )
+
+                total = _find_value(row, ["三大法人", "買賣超"])
+                out[code] = _normalize_inst_record(
+                    code, foreign, trust, dealer, total,
+                    "TWSE", date_str, "TWSE T86"
+                )
+            if out:
+                return out, {"twseDate": date_str, "twseCount": len(out)}
+        except Exception:
             continue
-        code = str(pick(x, [
-            "證券代號", "Code", "SecuritiesCompanyCode", "股票代號", "代號"
-        ]) or "").strip()
+    return {}, {"twseDate": "", "twseCount": 0}
+
+def _fetch_tpex_institutional():
+    """Official TPEx OpenAPI daily institutional trading detail."""
+    try:
+        r = requests.get(TPEX_INST, headers=UA, timeout=30)
+        r.raise_for_status()
+        rows = r.json()
+    except Exception:
+        return {}, {"tpexDate": "", "tpexCount": 0}
+
+    out = {}
+    latest_date = ""
+    for row in rows if isinstance(rows, list) else []:
+        code = str(
+            pick(row, [
+                "SecuritiesCompanyCode", "證券代號", "Code", "股票代號"
+            ])
+            or _find_value(row, ["證券", "代號"])
+            or ""
+        ).strip()
         if not re.fullmatch(r"\d{4}", code):
             continue
 
-        foreign = num(pick(x, [
-            "外陸資買賣超股數(不含外資自營商)", "外資及陸資買賣超股數",
-            "外資買賣超股數", "ForeignInvestorsNetBuySell", "ForeignNet"
-        ])) or 0
-        trust = num(pick(x, [
-            "投信買賣超股數", "InvestmentTrustNetBuySell", "TrustNet"
-        ])) or 0
-
-        dealer_total = num(pick(x, [
-            "自營商買賣超股數", "DealerNetBuySell", "DealerNet"
-        ]))
-        if dealer_total is None:
-            dealer_self = num(pick(x, ["自營商買賣超股數(自行買賣)", "DealerSelfNetBuySell"])) or 0
-            dealer_hedge = num(pick(x, ["自營商買賣超股數(避險)", "DealerHedgeNetBuySell"])) or 0
-            dealer_total = dealer_self + dealer_hedge
-
-        total = num(pick(x, [
-            "三大法人買賣超股數", "三大法人買賣超股數合計",
-            "TotalNetBuySell", "InstitutionalNet"
-        ]))
-        if total is None:
-            total = foreign + trust + dealer_total
-
-        out[code] = {
-            "foreignNet": round(foreign),
-            "trustNet": round(trust),
-            "dealerNet": round(dealer_total),
-            "institutionalNet": round(total),
-            "institutionalSource": source,
-            "institutionalAvailable": True
-        }
-    return out
-
-
-def twse_institutional_map():
-    try:
-        r = requests.get(TWSE_INST, headers=UA, timeout=30)
-        r.raise_for_status()
-        payload = r.json()
-        return _parse_institutional_rows(payload, "TWSE T86 官方")
-    except Exception:
-        return {}
-
-
-def _tpex_legacy_rows(payload):
-    # TPEx legacy JSON 可能以 tables[0].fields + data 回傳。
-    tables = payload.get("tables") if isinstance(payload, dict) else None
-    if not tables:
-        return []
-    table = tables[0] or {}
-    fields = table.get("fields") or table.get("columns") or []
-    data = table.get("data") or []
-    rows = []
-    for item in data:
-        if isinstance(item, dict):
-            rows.append(item)
-        elif isinstance(item, list) and fields:
-            rows.append({str(fields[i]): item[i] for i in range(min(len(fields), len(item)))})
-    return rows
-
-
-def tpex_institutional_map():
-    # 先試櫃買 OpenAPI；若路徑版本不同，再退回官方 dailyTrade JSON。
-    for url in TPEX_INST_OPENAPI_CANDIDATES:
-        try:
-            r = requests.get(url, headers=UA, timeout=25)
-            if r.status_code != 200 or "json" not in (r.headers.get("content-type") or "").lower():
-                continue
-            parsed = _parse_institutional_rows(r.json(), "TPEx OpenAPI 官方")
-            if parsed:
-                return parsed
-        except Exception:
-            pass
-
-    try:
-        today = datetime.now().strftime("%Y/%m/%d")
-        r = requests.get(
-            TPEX_INST_LEGACY,
-            params={"type": "Daily", "date": today, "id": "", "response": "json"},
-            headers=UA, timeout=30
+        foreign = (
+            pick(row, [
+                "ForeignInvestorsNetBuySell",
+                "ForeignInvestorsNetBuySellVolume",
+                "外資及陸資買賣超股數",
+                "外資及陸資買賣超",
+                "外資買賣超股數",
+            ])
+            or _find_value(row, ["外資", "買賣超"])
+            or _find_value(row, ["外陸資", "買賣超"])
         )
-        r.raise_for_status()
-        payload = r.json()
-        rows = _tpex_legacy_rows(payload)
-        parsed = _parse_institutional_rows(rows, "TPEx dailyTrade 官方")
-        if parsed:
-            return parsed
-    except Exception:
-        pass
-    return {}
+        trust = (
+            pick(row, [
+                "InvestmentTrustNetBuySell",
+                "InvestmentTrustNetBuySellVolume",
+                "投信買賣超股數",
+                "投信買賣超",
+            ])
+            or _find_value(row, ["投信", "買賣超"])
+        )
 
+        dealer_self = (
+            pick(row, [
+                "DealerSelfNetBuySell",
+                "DealerSelfNetBuySellVolume",
+                "自營商自行買賣買賣超股數",
+            ])
+            or _find_value(row, ["自營商", "自行買賣", "買賣超"])
+        )
+        dealer_hedge = (
+            pick(row, [
+                "DealerHedgeNetBuySell",
+                "DealerHedgeNetBuySellVolume",
+                "自營商避險買賣超股數",
+            ])
+            or _find_value(row, ["自營商", "避險", "買賣超"])
+        )
+        dealer_total = (
+            pick(row, [
+                "DealerNetBuySell",
+                "DealerNetBuySellVolume",
+                "自營商買賣超股數",
+                "自營商買賣超",
+            ])
+            or _find_value(row, ["自營商", "買賣超"], ["自行買賣", "避險"])
+        )
+        dealer = (
+            (num(dealer_self) or 0) + (num(dealer_hedge) or 0)
+            if dealer_self is not None or dealer_hedge is not None
+            else dealer_total
+        )
 
-def institutional_map():
-    merged = {}
-    merged.update(twse_institutional_map())
-    merged.update(tpex_institutional_map())
+        total = (
+            pick(row, [
+                "ThreeInstitutionalInvestorsNetBuySell",
+                "ThreeInstitutionalInvestorsNetBuySellVolume",
+                "三大法人買賣超股數",
+                "三大法人買賣超",
+            ])
+            or _find_value(row, ["三大法人", "買賣超"])
+        )
+        data_date = str(
+            pick(row, ["Date", "資料日期", "日期", "TradeDate"])
+            or _find_value(row, ["日期"])
+            or ""
+        ).strip()
+        latest_date = data_date or latest_date
+
+        out[code] = _normalize_inst_record(
+            code, foreign, trust, dealer, total,
+            "TPEx", data_date, "TPEx OpenAPI"
+        )
+
+    return out, {"tpexDate": latest_date, "tpexCount": len(out)}
+
+def institutional_map(force=False):
+    """Return official TWSE + TPEx institutional data. Missing data is explicit, never faked as zero."""
+    now = _today_taipei()
+    cache_key = now.strftime("%Y%m%d-%H")
+    if not force and _INST_CACHE["key"] == cache_key and _INST_CACHE["data"]:
+        return _INST_CACHE["data"]
+
+    twse, twse_meta = _fetch_twse_institutional()
+    tpex, tpex_meta = _fetch_tpex_institutional()
+    merged = {**twse, **tpex}
+
+    _INST_CACHE["key"] = cache_key
+    _INST_CACHE["data"] = merged
+    _INST_CACHE["meta"] = {**twse_meta, **tpex_meta}
     return merged
 
 
@@ -450,8 +523,14 @@ def analyze(code, name, period, inst):
 
     # 2) 法人分數 0~100
     inst_data = inst.get(code, {
-        "foreignNet": 0, "trustNet": 0, "dealerNet": 0, "institutionalNet": 0,
-        "institutionalSource": "尚未取得", "institutionalAvailable": False
+        "foreignNet": 0,
+        "trustNet": 0,
+        "dealerNet": 0,
+        "institutionalNet": 0,
+        "institutionalAvailable": False,
+        "institutionalDate": "",
+        "institutionalSource": "",
+        "institutionalMarket": source_meta.get("exchange"),
     })
     foreign_net = inst_data["foreignNet"]
     trust_net = inst_data["trustNet"]
@@ -460,36 +539,38 @@ def analyze(code, name, period, inst):
 
     institutional_score = 50
     institutional_reasons = []
-    if not inst_data.get("institutionalAvailable"):
-        institutional_reasons.append("官方法人資料暫未取得，本項不加減分")
+    institutional_available = bool(inst_data.get("institutionalAvailable"))
 
-    if institutional_net > 0:
-        institutional_score += 18
-        institutional_reasons.append("三大法人合計買超 +18")
-    elif institutional_net < 0:
-        institutional_score -= 18
-        institutional_reasons.append("三大法人合計賣超 -18")
+    if institutional_available:
+        if institutional_net > 0:
+            institutional_score += 18
+            institutional_reasons.append("官方三大法人合計買超 +18")
+        elif institutional_net < 0:
+            institutional_score -= 18
+            institutional_reasons.append("官方三大法人合計賣超 -18")
 
-    if foreign_net > 0:
-        institutional_score += 12
-        institutional_reasons.append("外資買超 +12")
-    elif foreign_net < 0:
-        institutional_score -= 10
-        institutional_reasons.append("外資賣超 -10")
+        if foreign_net > 0:
+            institutional_score += 12
+            institutional_reasons.append("官方外資買超 +12")
+        elif foreign_net < 0:
+            institutional_score -= 10
+            institutional_reasons.append("官方外資賣超 -10")
 
-    if trust_net > 0:
-        institutional_score += 12
-        institutional_reasons.append("投信買超 +12")
-    elif trust_net < 0:
-        institutional_score -= 8
-        institutional_reasons.append("投信賣超 -8")
+        if trust_net > 0:
+            institutional_score += 12
+            institutional_reasons.append("官方投信買超 +12")
+        elif trust_net < 0:
+            institutional_score -= 8
+            institutional_reasons.append("官方投信賣超 -8")
 
-    if dealer_net > 0:
-        institutional_score += 8
-        institutional_reasons.append("自營商買超 +8")
-    elif dealer_net < 0:
-        institutional_score -= 6
-        institutional_reasons.append("自營商賣超 -6")
+        if dealer_net > 0:
+            institutional_score += 8
+            institutional_reasons.append("官方自營商買超 +8")
+        elif dealer_net < 0:
+            institutional_score -= 6
+            institutional_reasons.append("官方自營商賣超 -6")
+    else:
+        institutional_reasons.append("官方法人資料尚未發布或暫時無法取得，法人分數維持中性")
 
     institutional_score = max(0, min(100, round(institutional_score)))
 
@@ -498,12 +579,15 @@ def analyze(code, name, period, inst):
     main_force_score = 50
     main_force_reasons = []
 
-    if institutional_net > 0:
-        main_force_score += 20
-        main_force_reasons.append("法人方向偏多 +20")
-    elif institutional_net < 0:
-        main_force_score -= 20
-        main_force_reasons.append("法人方向偏空 -20")
+    if institutional_available:
+        if institutional_net > 0:
+            main_force_score += 20
+            main_force_reasons.append("官方法人方向偏多 +20")
+        elif institutional_net < 0:
+            main_force_score -= 20
+            main_force_reasons.append("官方法人方向偏空 -20")
+    else:
+        main_force_reasons.append("法人資料未取得，主力代理分數不採法人方向")
 
     if vr >= 1.5:
         main_force_score += 15
@@ -574,10 +658,7 @@ def analyze(code, name, period, inst):
         "institutionalReasons": institutional_reasons,
         "mainForceReasons": main_force_reasons,
         **inst_data,
-        "mainForceStatus": main_force_status,
-        "institutionalSource": inst_data.get("institutionalSource", "尚未取得"),
-        "institutionalAvailable": bool(inst_data.get("institutionalAvailable")),
-        "institutionalUnit": "股"
+        "mainForceStatus": main_force_status
     }
 
 @app.get("/")
@@ -591,27 +672,38 @@ def health():
 @app.get("/api/universe")
 def universe():
     try:
-        return jsonify(all_universe(force=request.args.get("force") == "1"))
+        return jsonify(all_universe())
     except Exception as e:
         return jsonify(error=str(e)), 502
+
+
+@app.get("/api/institutional/status")
+def institutional_status():
+    data = institutional_map(force=request.args.get("force") == "1")
+    meta = dict(_INST_CACHE.get("meta") or {})
+    meta.update({
+        "ok": True,
+        "records": len(data),
+        "sample": list(data.items())[:3],
+        "message": "法人資料來自 TWSE T86 與 TPEx OpenAPI；無資料時不以 0 冒充。"
+    })
+    return jsonify(meta)
+
 
 @app.post("/api/scan")
 def scan():
     body = request.get_json(silent=True) or {}
     period = body.get("period", "day")
     offset = max(0, int(body.get("offset", 0)))
-    limit = min(20, max(1, int(body.get("limit", 12))))
-    market = str(body.get("market", "all"))
+    limit = min(40, max(1, int(body.get("limit", 20))))
 
     try:
         uni = all_universe()
-        if market in {"TWSE", "TPEx"}:
-            uni = [x for x in uni if x.get("market") == market]
         inst = institutional_map()
         batch = uni[offset:offset + limit]
         results, errors = [], []
 
-        with ThreadPoolExecutor(max_workers=3) as ex:
+        with ThreadPoolExecutor(max_workers=4) as ex:
             futs = {ex.submit(analyze, x["code"], x["name"], period, inst): x for x in batch}
             for f in as_completed(futs):
                 stock_info = futs[f]
@@ -628,7 +720,6 @@ def scan():
         return jsonify({
             "ok": True,
             "period": period,
-            "market": market,
             "offset": offset,
             "limit": limit,
             "total": len(uni),

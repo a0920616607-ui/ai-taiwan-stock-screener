@@ -61,7 +61,7 @@
 
 <section class="card scan-card">
   <div class="scan-title-row">
-    <h3>掃描結果</h3><small class="official-data-note">法人＝官方每日買賣超（張）｜主力＝估算分數</small><small class="scan-subtitle">依 AI 分數排序</small>
+    <div><h3>掃描結果</h3><small id="institutionalStatus" class="official-status">法人資料：檢查中</small></div>
     <input id="search" placeholder="搜尋結果">
   </div>
 
@@ -71,7 +71,7 @@
     <span>燈號</span>
     <span>AI總分</span>
     <span>法人／主力</span>
-    <span>量能</span>
+    
   </div>
   <div id="resultRows" class="pro-result-list"></div>
 
@@ -193,7 +193,7 @@
         <small id="detailMarket">—</small>
         <h3 id="detailTitle">股票細項</h3>
       </div>
-      <button id="closeDetail" class="icon-close" type="button" aria-label="關閉" onclick="window.closeStockDetail && window.closeStockDetail(event)">×</button>
+      <button id="closeDetail" class="icon-close" type="button" aria-label="關閉">×</button>
     </div>
 
     <div class="detail-scroll">
