@@ -36,3 +36,12 @@ Render Service Name 固定不變：
 3. Render 會自動部署；若沒有，進入原 v7 服務：
    Manual Deploy → Deploy latest commit。
 4. 不需要建立新的 Render Service，網址維持不變。
+
+
+## V8.0 內頁修正
+- X 關閉按鈕改用 onclick、touchend、pointerup 三重事件。
+- 點擊內頁背景亦可關閉。
+- 技術分析、法人分析、主力分析改用事件委派，手機版可正常切換。
+- 每次開啟個股時重新填入三個分析頁籤內容。
+- 法人頁籤顯示外資、投信、自營商、三大法人與官方來源日期。
+- 主力頁籤明確標示為估算指標，不冒充官方分點張數。
