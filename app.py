@@ -789,11 +789,17 @@ def institutional_status():
 def scan():
     body = request.get_json(silent=True) or {}
     period = body.get("period", "day")
+    market = str(body.get("market", "all"))
     offset = max(0, int(body.get("offset", 0)))
     limit = min(40, max(1, int(body.get("limit", 20))))
 
     try:
         uni = all_universe()
+        if market == "TWSE":
+            uni = [item for item in uni if item.get("market") == "TWSE"]
+        elif market == "TPEx":
+            uni = [item for item in uni if item.get("market") == "TPEx"]
+
         inst = institutional_map()
         batch = uni[offset:offset + limit]
         results, errors = [], []
@@ -803,7 +809,9 @@ def scan():
             for f in as_completed(futs):
                 stock_info = futs[f]
                 try:
-                    results.append(f.result())
+                    result = f.result()
+                    result["market"] = stock_info.get("market", result.get("market", "TWSE"))
+                    results.append(result)
                 except Exception as exc:
                     errors.append({
                         "code": stock_info["code"],
@@ -815,6 +823,7 @@ def scan():
         return jsonify({
             "ok": True,
             "period": period,
+            "market": market,
             "offset": offset,
             "limit": limit,
             "total": len(uni),

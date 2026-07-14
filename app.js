@@ -1,4 +1,24 @@
 
+window.switchReasonTab=function(key){
+  const overlay=document.getElementById('detailOverlay');
+  if(!overlay)return false;
+
+  overlay.querySelectorAll('.reason-tab').forEach(btn=>{
+    const active=btn.dataset.reason===key;
+    btn.classList.toggle('active',active);
+    btn.setAttribute('aria-selected',active?'true':'false');
+  });
+
+  overlay.querySelectorAll('.reason-panel').forEach(panel=>{
+    const active=panel.dataset.reasonPanel===key;
+    panel.classList.toggle('active',active);
+    panel.hidden=!active;
+    panel.style.display=active?'block':'none';
+  });
+  return false;
+};
+
+
 async function fetchJsonSafe(url, options={}){
   const response = await fetch(url, options);
   const contentType = response.headers.get('content-type') || '';
@@ -76,13 +96,16 @@ async function scanPage(){
  $('#progress').value=15;
  $('#empty').textContent='正在取得歷史行情、法人與主力代理指標…';
  try{
-  const r=await fetch('/api/scan',{
+  const d=await fetchJsonSafe('/api/scan',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({period,offset:page*pageSize,limit:pageSize})
+   body:JSON.stringify({
+    period,
+    market:document.getElementById('marketFilter')?.value||'all',
+    offset:page*pageSize,
+    limit:pageSize
+   })
   });
-  const d=await r.json();
-  if(!r.ok || d.ok===false) throw Error(d.error||'掃描失敗');
 
   results=Array.isArray(d.results)?d.results:[];
   $('#progress').value=100;
@@ -425,7 +448,16 @@ $('#manualAnalyzeAdd').onclick=async()=>{
 $('#syncBtn').onclick=()=>syncUniverse().catch(e=>alert(e.message));
 $('#scanBtn').onclick=()=>scanPage().catch(e=>alert(e.message));
 $('#prev').onclick=()=>{if(page>0){page--;scanPage().catch(e=>alert(e.message))}};
-$('#next').onclick=()=>{if((page+1)*pageSize<universe.length){page++;scanPage().catch(e=>alert(e.message))}};
+$('#next').onclick=()=>{
+ const market=document.getElementById('marketFilter')?.value||'all';
+ const total=market==='all'
+  ? universe.length
+  : universe.filter(x=>x.market===market).length;
+ if((page+1)*pageSize<total){
+  page++;
+  scanPage().catch(e=>alert(e.message));
+ }
+};
 $('#search').oninput=renderResults;
 document.querySelectorAll('.period').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.period').forEach(x=>x.classList.remove('active'));
@@ -547,10 +579,21 @@ function renderRanking(){
  }).join(''):'<p class="ranking-empty">請先開始 AI 掃描，排行榜才會出現資料。</p>';
 }
 
-['marketFilter','techFilter','sortMode'].forEach(id=>{
+['techFilter','sortMode'].forEach(id=>{
  const el=document.getElementById(id);
  if(el) el.addEventListener('change',renderResults);
 });
+const marketFilter=document.getElementById('marketFilter');
+if(marketFilter){
+ marketFilter.addEventListener('change',()=>{
+  page=0;
+  results=[];
+  renderResults();
+  const label=marketFilter.value==='TPEx'?'上櫃':
+              marketFilter.value==='TWSE'?'上市':'上市＋上櫃';
+  document.getElementById('progressText').textContent=`已切換${label}，請按開始 AI 掃描`;
+ });
+}
 $('#refreshRanking')?.addEventListener('click',renderRanking);
 renderRanking();
 
@@ -578,29 +621,4 @@ refreshInstitutionalStatus();
 
 
 
-window.switchReasonTab=function(key){
-  const overlay=document.getElementById('detailOverlay');
-  if(!overlay)return false;
 
-  overlay.querySelectorAll('.reason-tab').forEach(btn=>{
-    const active=btn.dataset.reason===key;
-    btn.classList.toggle('active',active);
-    btn.setAttribute('aria-selected',active?'true':'false');
-  });
-
-  overlay.querySelectorAll('.reason-panel').forEach(panel=>{
-    const active=panel.dataset.reasonPanel===key;
-    panel.classList.toggle('active',active);
-    panel.hidden=!active;
-    panel.style.display=active?'block':'none';
-  });
-  return false;
-};
-
-document.addEventListener('click',function(event){
-  const btn=event.target.closest('#detailOverlay .reason-tab');
-  if(!btn)return;
-  event.preventDefault();
-  event.stopPropagation();
-  window.switchReasonTab(btn.dataset.reason);
-},true);
