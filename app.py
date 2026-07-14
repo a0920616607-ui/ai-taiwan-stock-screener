@@ -824,6 +824,7 @@ def scan():
             "ok": True,
             "period": period,
             "market": market,
+            "marketTotal": len(uni),
             "offset": offset,
             "limit": limit,
             "total": len(uni),

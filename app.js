@@ -1,4 +1,20 @@
 
+function selectedMarketUniverse(){
+ const market=document.getElementById('marketFilter')?.value||'all';
+ if(market==='all')return universe;
+ return universe.filter(x=>x.market===market);
+}
+function updateMarketCounters(scannedCount=null, marketTotal=null){
+ const rows=selectedMarketUniverse();
+ const total=marketTotal==null ? rows.length : Number(marketTotal||0);
+ const scanned=scannedCount==null ? results.length : Number(scannedCount||0);
+ const totalEl=document.getElementById('total');
+ const scannedEl=document.getElementById('scanned');
+ if(totalEl)totalEl.textContent=total.toLocaleString();
+ if(scannedEl)scannedEl.textContent=scanned.toLocaleString();
+}
+
+
 window.switchReasonTab=function(key){
   const overlay=document.getElementById('detailOverlay');
   if(!overlay)return false;
@@ -78,9 +94,9 @@ async function syncUniverse(){
     localStorage.setItem('v63-universe',JSON.stringify(rows));
     localStorage.setItem('v63-last-sync',new Date().toISOString());
     page=0;
-    $('#total').textContent=rows.length;
-    const otcCount=Number(d.tpexCount||0);
-    const listedCount=Number(d.twseCount||0);
+    updateMarketCounters(0);
+    const listedCount=rows.filter(x=>x.market==='TWSE').length;
+    const otcCount=rows.filter(x=>x.market==='TPEx').length;
     $('#progressText').textContent=`已同步 ${rows.length} 檔（上市 ${listedCount}／上櫃 ${otcCount}）`;
     renderWatch();
     return rows;
@@ -450,9 +466,7 @@ $('#scanBtn').onclick=()=>scanPage().catch(e=>alert(e.message));
 $('#prev').onclick=()=>{if(page>0){page--;scanPage().catch(e=>alert(e.message))}};
 $('#next').onclick=()=>{
  const market=document.getElementById('marketFilter')?.value||'all';
- const total=market==='all'
-  ? universe.length
-  : universe.filter(x=>x.market===market).length;
+ const total=selectedMarketUniverse().length;
  if((page+1)*pageSize<total){
   page++;
   scanPage().catch(e=>alert(e.message));
@@ -588,10 +602,12 @@ if(marketFilter){
  marketFilter.addEventListener('change',()=>{
   page=0;
   results=[];
+  allScannedResults=[];
   renderResults();
+  updateMarketCounters(0);
   const label=marketFilter.value==='TPEx'?'上櫃':
               marketFilter.value==='TWSE'?'上市':'上市＋上櫃';
-  document.getElementById('progressText').textContent=`已切換${label}，請按開始 AI 掃描`;
+  document.getElementById('progressText').textContent=`已切換${label}，共 ${selectedMarketUniverse().length.toLocaleString()} 檔，請按開始 AI 掃描`;
  });
 }
 $('#refreshRanking')?.addEventListener('click',renderRanking);
