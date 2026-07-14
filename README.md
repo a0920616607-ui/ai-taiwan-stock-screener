@@ -53,3 +53,12 @@ Render Service Name 固定不變：
 - 法人分析與主力分析改為直接 onclick 切換，避免 Android Chrome 點擊失效。
 - 頁籤與內容面板使用明確 display 切換。
 - 快取版本更新至 803。
+
+
+## V8.0 同步與頁籤最終修正
+- 修正 `rows is not defined`：同步股票名單正確從 API 回傳資料建立 rows。
+- 上櫃／同步 API 若回傳 HTML 錯誤頁，前端改顯示中文提示。
+- 後端 API 例外統一回傳 JSON。
+- 法人分析與主力分析改用實際內頁容器 `detailOverlay`。
+- 三個頁籤改成直接 onclick，不再依賴容易失效的事件委派。
+- 快取版本更新至 804。

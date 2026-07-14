@@ -672,6 +672,14 @@ def api_error(message, status=500, **extra):
 def home():
     return send_from_directory(".", "index.html")
 
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(exc):
+    if request.path.startswith("/api/"):
+        return api_error("伺服器暫時無法完成請求，請稍後再試。", 500, detail=str(exc)[:180])
+    raise exc
+
+
 @app.get("/api/health")
 def health():
     return jsonify(ok=True, version="V8.0", time=datetime.now().isoformat())

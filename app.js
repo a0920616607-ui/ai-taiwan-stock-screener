@@ -50,16 +50,22 @@ function saveGroups(){
  renderGroups();renderWatch();renderResults();
 }
 async function syncUniverse(){
- $('#progressText').textContent='同步股票名單中…';
- const r=await fetch('/api/universe'),d=await r.json();
- if(!r.ok) throw Error(d.error||'同步失敗');
- universe=rows;
-localStorage.setItem('v63-universe',JSON.stringify(d));
-localStorage.setItem('v63-last-sync',new Date().toISOString());
-page=0;
-$('#total').textContent=d.length;
-$('#progressText').textContent=`已同步 ${rows.length} 檔上市＋上櫃股票`;
- renderWatch();
+  $('#progressText').textContent='同步股票名單中…';
+  try{
+    const d=await fetchJsonSafe('/api/universe');
+    const rows=Array.isArray(d) ? d : (Array.isArray(d.data) ? d.data : []);
+    universe=rows;
+    localStorage.setItem('v63-universe',JSON.stringify(rows));
+    localStorage.setItem('v63-last-sync',new Date().toISOString());
+    page=0;
+    $('#total').textContent=rows.length;
+    $('#progressText').textContent=`已同步 ${rows.length} 檔上市＋上櫃股票`;
+    renderWatch();
+    return rows;
+  }catch(err){
+    $('#progressText').textContent='同步失敗';
+    throw err;
+  }
 }
 async function scanPage(){
  if(!universe.length) await syncUniverse();
@@ -484,6 +490,7 @@ window.openStockDetailByCode=function(code){
 
  const overlay=$('#detailOverlay');
  overlay.classList.add('open');
+ window.switchReasonTab('technical');
  overlay.setAttribute('aria-hidden','false');
  document.body.classList.add('modal-open');
 }
@@ -517,21 +524,6 @@ $('#detailAddWatch').addEventListener('click',()=>{
  chooseGroup(detailStock.code);
 });
 
-const reasonTabs=document.querySelector('.reason-tabs');
-if(reasonTabs){
- reasonTabs.addEventListener('click',e=>{
-  const btn=e.target.closest('.reason-tab');
-  if(!btn)return;
-  e.preventDefault();
-  e.stopPropagation();
-  const key=btn.dataset.reason;
-  document.querySelectorAll('.reason-tab').forEach(b=>b.classList.toggle('active',b===btn));
-  document.querySelectorAll('.reason-panel').forEach(p=>{
-   p.classList.toggle('active',p.dataset.reasonPanel===key);
-  });
- });
- 
-}
 
 
 function renderRanking(){
@@ -580,8 +572,10 @@ async function refreshInstitutionalStatus(){
 refreshInstitutionalStatus();
 
 
-window.switchReasonTab=function(key, clicked){
-  const detail=document.getElementById('stockDetail');
+
+
+window.switchReasonTab=function(key){
+  const detail=document.getElementById('detailOverlay');
   if(!detail)return false;
 
   detail.querySelectorAll('.reason-tab').forEach(btn=>{
@@ -593,6 +587,7 @@ window.switchReasonTab=function(key, clicked){
   detail.querySelectorAll('.reason-panel').forEach(panel=>{
     const active=panel.dataset.reasonPanel===key;
     panel.classList.toggle('active',active);
+    panel.hidden=!active;
     panel.style.display=active?'block':'none';
   });
   return false;
