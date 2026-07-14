@@ -9,6 +9,10 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 TWSE_DAILY = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
 TWSE_INST = "https://www.twse.com.tw/rwd/zh/fund/T86"
 TPEX_DAILY = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"
+TPEX_DAILY_FALLBACKS = [
+    "https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes",
+    "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php",
+]
 TPEX_INST = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"
 UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/6.2)"}
 
@@ -45,40 +49,116 @@ def twse_universe():
     return out
 
 
-def tpex_universe():
-    """上櫃股票清單。若櫃買 OpenAPI 暫時失敗，回傳空清單，不影響上市資料。"""
-    try:
-        r = requests.get(TPEX_DAILY, headers=UA, timeout=30)
-        r.raise_for_status()
-        rows = r.json()
-    except Exception:
+
+def _extract_tpex_rows(payload):
+    """Normalize TPEx OpenAPI and legacy JSON structures into a row list."""
+    if isinstance(payload, list):
+        return payload
+
+    if not isinstance(payload, dict):
         return []
 
-    out = []
-    for x in rows:
-        code = str(pick(x, [
-            "SecuritiesCompanyCode", "證券代號", "Code", "股票代號"
-        ]) or "").strip()
-        if not re.fullmatch(r"\d{4}", code):
-            continue
+    for key in ("data", "aaData", "rows", "result"):
+        rows = payload.get(key)
+        if isinstance(rows, list):
+            return rows
 
-        close = num(pick(x, [
-            "Close", "收盤價", "ClosingPrice", "ClosePrice"
-        ]))
-        if close is None:
-            continue
+    tables = payload.get("tables")
+    if isinstance(tables, list):
+        for table in tables:
+            if not isinstance(table, dict):
+                continue
+            fields = table.get("fields") or table.get("columns") or []
+            rows = table.get("data") or table.get("rows") or []
+            if rows and isinstance(rows[0], list) and fields:
+                names = [
+                    f.get("title") if isinstance(f, dict) else str(f)
+                    for f in fields
+                ]
+                return [dict(zip(names, row)) for row in rows]
+            if isinstance(rows, list):
+                return rows
+    return []
+
+def _parse_tpex_row(x):
+    if isinstance(x, list):
+        # Legacy daily quote order usually starts with code, name, close.
+        if len(x) < 3:
+            return None
+        code = str(x[0]).strip()
+        name = str(x[1]).strip()
+        close = num(x[2])
+    elif isinstance(x, dict):
+        code = str(pick(x, [
+            "SecuritiesCompanyCode", "證券代號", "Code", "股票代號",
+            "SecuritiesCode", "代號"
+        ]) or "").strip()
 
         name = str(pick(x, [
-            "CompanyName", "證券名稱", "Name", "股票名稱"
+            "CompanyName", "證券名稱", "Name", "股票名稱",
+            "SecuritiesCompanyName", "名稱"
         ]) or code).strip()
 
-        out.append({
-            "code": code,
-            "name": name,
-            "close": close,
-            "market": "TPEx"
-        })
-    return out
+        close = num(pick(x, [
+            "Close", "收盤價", "ClosingPrice", "ClosePrice",
+            "ClosePriceToday", "最後成交價"
+        ]))
+    else:
+        return None
+
+    if not re.fullmatch(r"\d{4}", code):
+        return None
+    if close is None:
+        # 名單仍可保留；掃描時會由 Yahoo chart 取得價格。
+        close = 0
+
+    return {
+        "code": code,
+        "name": name or code,
+        "close": close,
+        "market": "TPEx"
+    }
+
+def tpex_universe():
+    """上櫃股票清單：OpenAPI 優先，舊版 JSON 端點作為後備。"""
+    attempts = [
+        (TPEX_DAILY, None),
+    ]
+
+    today = _today_taipei()
+    roc_date = _to_roc_date(today)
+
+    for url in TPEX_DAILY_FALLBACKS:
+        if "dailyQuotes" in url:
+            attempts.append((url, {
+                "date": today.strftime("%Y/%m/%d"),
+                "id": "",
+                "response": "json",
+            }))
+        else:
+            attempts.append((url, {
+                "d": roc_date,
+                "l": "zh-tw",
+                "se": "EW",
+            }))
+
+    for url, params in attempts:
+        try:
+            r = requests.get(url, params=params, headers=UA, timeout=30)
+            r.raise_for_status()
+            payload = r.json()
+            rows = _extract_tpex_rows(payload)
+            out = []
+            for row in rows:
+                item = _parse_tpex_row(row)
+                if item:
+                    out.append(item)
+            if out:
+                return out
+        except Exception:
+            continue
+
+    return []
 
 def all_universe():
     merged = {}

@@ -59,7 +59,9 @@ async function syncUniverse(){
     localStorage.setItem('v63-last-sync',new Date().toISOString());
     page=0;
     $('#total').textContent=rows.length;
-    $('#progressText').textContent=`已同步 ${rows.length} 檔上市＋上櫃股票`;
+    const otcCount=Number(d.tpexCount||0);
+    const listedCount=Number(d.twseCount||0);
+    $('#progressText').textContent=`已同步 ${rows.length} 檔（上市 ${listedCount}／上櫃 ${otcCount}）`;
     renderWatch();
     return rows;
   }catch(err){
@@ -490,7 +492,7 @@ window.openStockDetailByCode=function(code){
 
  const overlay=$('#detailOverlay');
  overlay.classList.add('open');
- window.switchReasonTab('technical');
+ window.switchReasonTab('tech');
  overlay.setAttribute('aria-hidden','false');
  document.body.classList.add('modal-open');
 }
@@ -574,17 +576,19 @@ refreshInstitutionalStatus();
 
 
 
-window.switchReasonTab=function(key){
-  const detail=document.getElementById('detailOverlay');
-  if(!detail)return false;
 
-  detail.querySelectorAll('.reason-tab').forEach(btn=>{
+
+window.switchReasonTab=function(key){
+  const overlay=document.getElementById('detailOverlay');
+  if(!overlay)return false;
+
+  overlay.querySelectorAll('.reason-tab').forEach(btn=>{
     const active=btn.dataset.reason===key;
     btn.classList.toggle('active',active);
     btn.setAttribute('aria-selected',active?'true':'false');
   });
 
-  detail.querySelectorAll('.reason-panel').forEach(panel=>{
+  overlay.querySelectorAll('.reason-panel').forEach(panel=>{
     const active=panel.dataset.reasonPanel===key;
     panel.classList.toggle('active',active);
     panel.hidden=!active;
@@ -592,3 +596,11 @@ window.switchReasonTab=function(key){
   });
   return false;
 };
+
+document.addEventListener('click',function(event){
+  const btn=event.target.closest('#detailOverlay .reason-tab');
+  if(!btn)return;
+  event.preventDefault();
+  event.stopPropagation();
+  window.switchReasonTab(btn.dataset.reason);
+},true);

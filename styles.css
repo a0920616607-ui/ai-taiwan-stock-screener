@@ -527,3 +527,23 @@ body.modal-open{overflow:hidden}
 .reason-panel.active{
   display:block!important;
 }
+
+/* V8.0 上櫃與內頁真正修正 */
+#detailOverlay .reason-tabs{
+  position:relative!important;
+  z-index:2147483000!important;
+  pointer-events:auto!important;
+}
+#detailOverlay .reason-tab{
+  position:relative!important;
+  z-index:2147483001!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+  cursor:pointer!important;
+}
+#detailOverlay .reason-panel[hidden]{
+  display:none!important;
+}
+#detailOverlay .reason-panel.active{
+  display:block!important;
+}
