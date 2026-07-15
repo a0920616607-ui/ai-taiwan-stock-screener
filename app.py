@@ -548,6 +548,21 @@ def analyze(code, name, period, inst):
 
     i, p = len(rows) - 1, len(rows) - 2
     ma5, ma10, ma20 = sma(c, 5), sma(c, 10), sma(c, 20)
+
+    ema100_series = ema(c, 100)
+    ema100_now = ema100_series[i] if len(ema100_series) > i else None
+    ema100_prev = ema100_series[p] if len(ema100_series) > p else None
+    above_ema100 = bool(ema100_now is not None and c[i] > ema100_now)
+    ema100_rising = bool(
+        ema100_now is not None and ema100_prev is not None and ema100_now > ema100_prev
+    )
+    macd_golden_cross = bool(
+        dif[i] > sig[i] and dif[p] <= sig[p]
+    )
+    ema100_macd_strategy = bool(
+        above_ema100 and ema100_rising and macd_golden_cross
+    )
+
     vol6 = sma(v, 6) or 1
     vr = v[i] / vol6 if vol6 else 0
     price_change = ((c[i] / c[p]) - 1) * 100 if c[p] else 0
@@ -592,6 +607,20 @@ def analyze(code, name, period, inst):
     if ma20 and c[i] > ma20:
         technical_score += 7
         technical_reasons.append("站上長期均線 +7")
+
+    if above_ema100:
+        technical_score += 15
+        technical_reasons.append("股價站上 EMA100 +15")
+    if ema100_rising:
+        technical_score += 10
+        technical_reasons.append("EMA100 上彎 +10")
+    if macd_golden_cross:
+        technical_score += 15
+        technical_reasons.append("MACD 黃金交叉 +15")
+    if ema100_macd_strategy:
+        technical_score += 10
+        technical_reasons.append("EMA100 多頭策略成立 +10")
+
     if vr >= 1.5:
         technical_score += 8
         technical_reasons.append("量能明顯放大 +8")
@@ -731,6 +760,13 @@ def analyze(code, name, period, inst):
         "D": round(D[i], 1) if D[i] is not None else None,
         "RSI": round(R[i], 1) if R[i] is not None else None,
         "MACD": round(hist[i], 2),
+        "DIF": round(dif[i], 2),
+        "MACDSignal": round(sig[i], 2),
+        "MACDGoldenCross": macd_golden_cross,
+        "EMA100": round(ema100_now, 2) if ema100_now is not None else None,
+        "aboveEMA100": above_ema100,
+        "EMA100Rising": ema100_rising,
+        "EMA100MACDStrategy": ema100_macd_strategy,
         "volumeRatio": round(vr, 2),
         "status": status,
         "entry": "回測短期均線量縮止跌後分批" if ma5 and c[i] >= ma5 else "先等重新站回短期均線",
@@ -762,7 +798,7 @@ def handle_unexpected_error(exc):
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V8.0", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V8.1", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():

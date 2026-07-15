@@ -571,3 +571,23 @@ body.modal-open{overflow:hidden}
 #detailOverlay .reason-panel[hidden]{
   display:none!important;
 }
+
+/* V8.1 EMA100 策略 */
+.strategy-badge{
+  display:inline-block;
+  margin-top:4px;
+  padding:2px 6px;
+  border-radius:999px;
+  background:rgba(36,200,255,.12);
+  border:1px solid rgba(36,200,255,.45);
+  color:#24c8ff;
+  font-size:9px;
+  font-style:normal;
+  font-weight:700;
+}
+.detail-grid{
+  grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+}
+.indicator-row{
+  grid-template-columns:repeat(auto-fit,minmax(90px,1fr));
+}

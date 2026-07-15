@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V8.0</title>
-<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=811">
+<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V8.1</title>
+<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=81">
 </head><body>
-<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V8.0</b></h1></div><span id="health">連線中</span></header>
+<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V8.1</b></h1></div><span id="health">連線中</span></header>
 <main>
 <nav class="tabs">
 <button class="tab active" data-p="scanPanel">AI 選股</button>
@@ -40,6 +40,9 @@
       <option value="rsi_up">RSI 向上</option>
       <option value="volume">量能放大</option>
       <option value="ma_bull">站上均線</option>
+      <option value="above_ema100">股價站上 EMA100</option>
+      <option value="ema100_rising">EMA100 上彎</option>
+      <option value="ema100_macd">EMA100＋MACD 黃金交叉</option>
       <option value="buy">買入燈號</option>
       <option value="sell">賣出燈號</option>
     </select>
@@ -133,6 +136,8 @@
       <div><span>RSI</span><b id="sRSI">-</b></div>
       <div><span>MACD</span><b id="sMACD">-</b></div>
       <div><span>量比</span><b id="sVR">-</b></div>
+      <div><span>EMA100</span><b id="sEMA100">-</b></div>
+      <div><span>EMA100 策略</span><b id="sEMA100Strategy">-</b></div>
       <div><span>燈號</span><b id="sStatus">-</b></div>
     </div>
     <div class="reason-columns">
@@ -228,6 +233,8 @@
         <span>RSI <b id="detailRSI">-</b></span>
         <span>MACD <b id="detailMACD">-</b></span>
         <span>量比 <b id="detailVR">-</b></span>
+        <span>EMA100 <b id="detailEMA100">-</b></span>
+        <span>EMA100策略 <b id="detailEMA100Strategy">-</b></span>
       </div>
 
       <div id="detailVolume" class="volume-alert hint-flat">
@@ -260,5 +267,5 @@
   </section>
 </div>
 
-<script src="/app.js?v=811"></script>
+<script src="/app.js?v=81"></script>
 </body></html>

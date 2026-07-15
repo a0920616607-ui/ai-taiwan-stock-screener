@@ -234,6 +234,9 @@ function filteredResults(){
   if(tech==='rsi_up' && !hasReason(x,'RSI 向上')) return false;
   if(tech==='volume' && Number(x.volumeRatio)<1.2) return false;
   if(tech==='ma_bull' && !hasReason(x,'站上')) return false;
+  if(tech==='above_ema100' && !x.aboveEMA100) return false;
+  if(tech==='ema100_rising' && !x.EMA100Rising) return false;
+  if(tech==='ema100_macd' && !x.EMA100MACDStrategy) return false;
   if(tech==='buy' && signal.type!=='buy') return false;
   if(tech==='sell' && signal.type!=='sell') return false;
   return true;
@@ -263,6 +266,7 @@ function renderResults(){
       <b>${x.code}</b>
       <span>${x.name}</span>
       <small>${x.market==='TPEx'?'上櫃':'上市'}</small>
+      ${x.EMA100MACDStrategy?'<em class="strategy-badge">EMA100策略</em>':''}
     </button>
 
     <div class="pro-close">${x.close??'-'}</div>
@@ -433,6 +437,8 @@ function renderSingleResult(x){
  $('#sRSI').textContent=x.RSI??'-';
  $('#sMACD').textContent=x.MACD??'-';
  $('#sVR').textContent=x.volumeRatio??'-';
+ if($('#sEMA100')) $('#sEMA100').textContent=x.EMA100??'-';
+ if($('#sEMA100Strategy')) $('#sEMA100Strategy').textContent=x.EMA100MACDStrategy?'成立':'未成立';
  const singleSignal=getSignal(x);
  $('#sStatus').innerHTML=`<span class="single-signal signal-${singleSignal.type}">${singleSignal.icon?singleSignal.icon+' ':''}${singleSignal.label}</span>`;
  $('#sTechReasons').innerHTML=(x.technicalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>無</li>';
@@ -520,6 +526,8 @@ window.openStockDetailByCode=function(code){
  $('#detailRSI').textContent=x.RSI??'-';
  $('#detailMACD').textContent=x.MACD??'-';
  $('#detailVR').textContent=x.volumeRatio??'-';
+ if($('#detailEMA100')) $('#detailEMA100').textContent=x.EMA100??'-';
+ if($('#detailEMA100Strategy')) $('#detailEMA100Strategy').textContent=x.EMA100MACDStrategy?'成立':'未成立';
 
  $('#detailSignal').className=`big-signal signal-${signal.type}`;
  $('#detailSignal').innerHTML=`<span class="signal-circle">${signal.icon}</span><b>${signal.label}</b>`;
