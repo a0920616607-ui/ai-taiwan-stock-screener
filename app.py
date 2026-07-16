@@ -860,9 +860,35 @@ def handle_unexpected_error(exc):
     raise exc
 
 
+
+@app.get("/api/search")
+def api_search():
+    try:
+        q = str(request.args.get("q", "")).strip().lower()
+        limit = min(30, max(1, int(request.args.get("limit", 12))))
+        rows = all_universe()
+        if not q:
+            return jsonify({"ok": True, "results": [], "count": 0})
+        def rank(item):
+            code = str(item.get("code", "")).lower()
+            name = str(item.get("name", "")).lower()
+            score = 0
+            if code == q or name == q: score += 100
+            if code.startswith(q): score += 50
+            if name.startswith(q): score += 45
+            if q in code: score += 25
+            if q in name: score += 30
+            return score
+        matched = [x for x in rows if q in str(x.get("code", "")).lower() or q in str(x.get("name", "")).lower()]
+        matched.sort(key=lambda x: (-rank(x), str(x.get("code", ""))))
+        return jsonify({"ok": True, "results": matched[:limit], "count": len(matched)})
+    except Exception as exc:
+        return api_error("搜尋暫時無法完成，請稍後再試。", 503, detail=str(exc)[:160])
+
+
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V8.2", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V8.3", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():

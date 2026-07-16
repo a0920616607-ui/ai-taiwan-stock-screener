@@ -1,4 +1,61 @@
 
+let stockSearchTimer=null;
+async function searchStocks(query){
+ const q=String(query||'').trim();
+ if(!q)return [];
+ const d=await fetchJsonSafe(`/api/search?q=${encodeURIComponent(q)}&limit=12`);
+ return Array.isArray(d.results)?d.results:[];
+}
+function renderStockSuggestions(holder,rows,onSelect){
+ if(!holder)return;
+ holder.innerHTML=rows.length?rows.map(x=>`
+  <button type="button" class="stock-suggestion" data-code="${x.code}">
+   <span><b>${x.code}</b> ${x.name}</span>
+   <small>${x.market==='TPEx'?'上櫃':'上市'}</small>
+  </button>`).join(''):'<div class="suggestion-empty">找不到符合的上市／上櫃股票</div>';
+ holder.classList.add('open');
+ holder.querySelectorAll('.stock-suggestion').forEach(btn=>{
+  btn.onclick=()=>{
+   const row=rows.find(x=>x.code===btn.dataset.code);
+   if(row)onSelect(row);
+   holder.classList.remove('open');
+  };
+ });
+}
+function bindStockAutocomplete(inputSelector,holderSelector,onSelect){
+ const input=document.querySelector(inputSelector);
+ const holder=document.querySelector(holderSelector);
+ if(!input||!holder)return;
+ input.addEventListener('input',()=>{
+  clearTimeout(stockSearchTimer);
+  const q=input.value.trim();
+  if(!q){holder.classList.remove('open');holder.innerHTML='';return;}
+  stockSearchTimer=setTimeout(async()=>{
+   try{
+    const rows=await searchStocks(q);
+    renderStockSuggestions(holder,rows,row=>{
+     input.value=row.code;
+     input.dataset.stockName=row.name;
+     input.dataset.market=row.market;
+     onSelect?.(row);
+    });
+   }catch(e){
+    holder.innerHTML=`<div class="suggestion-empty">${e.message}</div>`;
+    holder.classList.add('open');
+   }
+  },220);
+ });
+}
+function aiLabelFromScore(score){
+ const n=Number(score||0);
+ if(n>=90)return '強勢候選';
+ if(n>=80)return '積極觀察';
+ if(n>=70)return '轉強觀察';
+ if(n>=60)return '等待確認';
+ return '暫不列入';
+}
+
+
 function selectedMarketUniverse(){
  const market=document.getElementById('marketFilter')?.value||'all';
  if(market==='all')return universe;
@@ -339,8 +396,10 @@ function renderWatch(){
   const name=x?.name||u?.name||code;
   return `<article class="watch-card">
    <button class="remove-stock" title="移除自選股" onclick="removeWatch('${code}')">×</button>
-   <h3>${name} ${code}</h3>
-   <p>${x?`${labelPeriod(x.period)}｜分數 ${x.score}｜收盤 ${x.close}`:'目前頁面尚未掃描此股票，可切換至相應頁面取得分析。'}</p>
+   <button class="watch-stock-open" type="button" onclick="openWatchStockAnalysis('${code}')">
+    <h3>${name} ${code}</h3>
+    <p>${x?`${labelPeriod(x.period)}｜AI ${x.aiScore??x.score}｜收盤 ${x.close}`:'點擊立即進行完整 AI 分析'}</p>
+   </button>
    <div class="watch-actions">
     <button class="move-stock" onclick="chooseGroup('${code}')">移動分類</button>
     <button class="danger" onclick="removeWatch('${code}')">刪除此股票</button>
@@ -403,8 +462,18 @@ $('#confirmNo').onclick=()=>{pendingConfirm=null;$('#confirmDialog').close()}
 async function analyzeSingleStock(code, selectedPeriod=singlePeriod){
  code=String(code||'').trim();
  if(!/^\d{4}$/.test(code)){
-  alert('請輸入 4 碼股票代號');
-  return null;
+  try{
+   const rows=await searchStocks(code);
+   if(!rows.length){
+    alert('找不到符合的股票，請輸入代號或中文名稱');
+    return null;
+   }
+   code=rows[0].code;
+   if(document.getElementById('singleCode'))document.getElementById('singleCode').value=code;
+  }catch(e){
+   alert(e.message);
+   return null;
+  }
  }
  $('#singleStatus').textContent='分析中…';
  $('#analyzeSingle').disabled=true;
@@ -437,6 +506,12 @@ function renderSingleResult(x){
  $('#sRSI').textContent=x.RSI??'-';
  $('#sMACD').textContent=x.MACD??'-';
  $('#sVR').textContent=x.volumeRatio??'-';
+ if($('#singleAiScore')) $('#singleAiScore').textContent=x.aiScore??x.score??'-';
+ if($('#singleAiLabel')) $('#singleAiLabel').textContent=aiLabelFromScore(x.aiScore??x.score);
+ if($('#singleAiExplanation')){
+  const reasons=(x.technicalReasons||[]).slice(0,4);
+  $('#singleAiExplanation').textContent=reasons.length?reasons.join('、'):'目前沒有足夠的加分條件';
+ }
  if($('#sEMA100')) $('#sEMA100').textContent=x.EMA100??'-';
  if($('#sEMA100Strategy')) $('#sEMA100Strategy').textContent=x.EMA100MACDStrategy?'成立':'未成立';
  const singleSignal=getSignal(x);
@@ -807,4 +882,27 @@ window.addEventListener('resize',()=>{
    drawEMA100Chart(detailStock);
   }
  },120);
+});
+
+window.openWatchStockAnalysis=async function(code){
+ const existing=results.find(v=>v.code===code)||allScannedResults.find(v=>v.code===code);
+ if(existing){openStockDetailByCode(code);return;}
+ const result=await analyzeSingleStock(code,singlePeriod);
+ if(!result)return;
+ if(!allScannedResults.some(x=>x.code===result.code))allScannedResults.push(result);
+ if(!results.some(x=>x.code===result.code))results.push(result);
+ openStockDetailByCode(result.code);
+};
+bindStockAutocomplete('#singleCode','#singleSuggestions',row=>{
+ const status=document.getElementById('singleStatus');
+ if(status)status.textContent=`已選擇 ${row.code} ${row.name}（${row.market==='TPEx'?'上櫃':'上市'}）`;
+});
+bindStockAutocomplete('#manualWatchCode','#watchSuggestions',row=>{
+ const input=document.getElementById('manualWatchCode');
+ if(input)input.value=row.code;
+});
+document.addEventListener('click',e=>{
+ if(!e.target.closest('.stock-search-wrap')){
+  document.querySelectorAll('.stock-suggestions').forEach(x=>x.classList.remove('open'));
+ }
 });
