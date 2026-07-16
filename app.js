@@ -499,6 +499,157 @@ if(universe.length){
 
 
 
+
+function renderStrengthLamps(selector, strength, type){
+ const holder=document.querySelector(selector);
+ if(!holder)return;
+ const level=Math.max(0,Math.min(5,Number(strength||0)));
+ holder.innerHTML=Array.from({length:5},(_,i)=>
+  `<span class="strength-lamp ${i<level?'on':''} ${type}"></span>`
+ ).join('');
+}
+
+function drawEMA100Chart(stock){
+ const canvas=document.getElementById('emaSignalChart');
+ if(!canvas)return;
+
+ const raw=Array.isArray(stock?.emaChart)?stock.emaChart:[];
+ const points=raw.filter(x=>Number.isFinite(Number(x.close)) && Number.isFinite(Number(x.ema100)));
+ const wrap=canvas.parentElement;
+ const width=Math.max(280,wrap?.clientWidth||320);
+ const height=240;
+ const ratio=Math.min(window.devicePixelRatio||1,2);
+
+ canvas.width=Math.round(width*ratio);
+ canvas.height=Math.round(height*ratio);
+ canvas.style.width=`${width}px`;
+ canvas.style.height=`${height}px`;
+
+ const ctx=canvas.getContext('2d');
+ ctx.setTransform(ratio,0,0,ratio,0,0);
+ ctx.clearRect(0,0,width,height);
+
+ if(points.length<2){
+  ctx.fillStyle='#9fb0c5';
+  ctx.font='14px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('EMA100 圖形資料不足',width/2,height/2);
+  return;
+ }
+
+ const pad={left:48,right:16,top:20,bottom:32};
+ const values=points.flatMap(p=>[Number(p.close),Number(p.ema100)]);
+ let min=Math.min(...values),max=Math.max(...values);
+ const spread=Math.max(max-min,max*0.02,1);
+ min-=spread*0.12;
+ max+=spread*0.12;
+
+ const x=i=>pad.left+(i/(points.length-1))*(width-pad.left-pad.right);
+ const y=value=>pad.top+(max-value)/(max-min)*(height-pad.top-pad.bottom);
+
+ ctx.strokeStyle='rgba(130,160,190,.18)';
+ ctx.lineWidth=1;
+ ctx.fillStyle='#8ca2ba';
+ ctx.font='11px sans-serif';
+ ctx.textAlign='right';
+
+ for(let n=0;n<=4;n++){
+  const yy=pad.top+n*(height-pad.top-pad.bottom)/4;
+  const val=max-n*(max-min)/4;
+  ctx.beginPath();
+  ctx.moveTo(pad.left,yy);
+  ctx.lineTo(width-pad.right,yy);
+  ctx.stroke();
+  ctx.fillText(val.toFixed(2),pad.left-7,yy+4);
+ }
+
+ const drawLine=(key,stroke,lineWidth)=>{
+  ctx.beginPath();
+  points.forEach((p,i)=>{
+   const px=x(i),py=y(Number(p[key]));
+   if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+  });
+  ctx.strokeStyle=stroke;
+  ctx.lineWidth=lineWidth;
+  ctx.lineJoin='round';
+  ctx.lineCap='round';
+  ctx.stroke();
+ };
+
+ drawLine('ema100','#ffb84d',2.2);
+ drawLine('close','#27c8ff',2.6);
+
+ const last=points[points.length-1];
+ const lastX=x(points.length-1);
+ const closeY=y(Number(last.close));
+ const emaY=y(Number(last.ema100));
+
+ ctx.fillStyle='#27c8ff';
+ ctx.beginPath();ctx.arc(lastX,closeY,4.5,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#ffb84d';
+ ctx.beginPath();ctx.arc(lastX,emaY,4,0,Math.PI*2);ctx.fill();
+
+ ctx.textAlign='right';
+ ctx.font='bold 11px sans-serif';
+ ctx.fillStyle='#27c8ff';
+ ctx.fillText(`價 ${Number(last.close).toFixed(2)}`,lastX-7,closeY-8);
+ ctx.fillStyle='#ffb84d';
+ ctx.fillText(`EMA ${Number(last.ema100).toFixed(2)}`,lastX-7,emaY+16);
+
+ const firstDate=String(points[0].date||'');
+ const lastDate=String(last.date||'');
+ ctx.fillStyle='#8ca2ba';
+ ctx.font='10px sans-serif';
+ ctx.textAlign='left';
+ ctx.fillText(firstDate,pad.left,height-10);
+ ctx.textAlign='right';
+ ctx.fillText(lastDate,width-pad.right,height-10);
+}
+
+function renderEMA100Signal(stock){
+ const price=Number(stock?.close);
+ const ema=Number(stock?.EMA100);
+ const distance=Number(stock?.EMADistancePct);
+ const above=Boolean(stock?.aboveEMA100);
+ const rising=Boolean(stock?.EMA100Rising);
+ const bull=Number(stock?.bullStrength||0);
+ const bear=Number(stock?.bearStrength||0);
+
+ const priceEl=document.getElementById('emaCurrentPrice');
+ const emaEl=document.getElementById('emaCurrentValue');
+ const distanceEl=document.getElementById('emaDistance');
+ const directionEl=document.getElementById('emaDirection');
+ const badge=document.getElementById('emaPositionBadge');
+
+ if(priceEl)priceEl.textContent=Number.isFinite(price)?price.toFixed(2):'-';
+ if(emaEl)emaEl.textContent=Number.isFinite(ema)?ema.toFixed(2):'-';
+ if(distanceEl){
+  distanceEl.textContent=Number.isFinite(distance)?`${distance>=0?'+':''}${distance.toFixed(2)}%`:'-';
+  distanceEl.className=distance>0?'flow-buy':distance<0?'flow-sell':'';
+ }
+ if(directionEl)directionEl.textContent=rising?'上彎':'走平／下彎';
+
+ if(badge){
+  badge.textContent=above?'多方區':'空方區';
+  badge.className=`ema-position ${above?'bull':'bear'}`;
+ }
+
+ const bullText=document.getElementById('bullStrengthText');
+ const bearText=document.getElementById('bearStrengthText');
+ if(bullText)bullText.textContent=`${bull}／5`;
+ if(bearText)bearText.textContent=`${bear}／5`;
+ renderStrengthLamps('#bullStrengthLamps',bull,'bull');
+ renderStrengthLamps('#bearStrengthLamps',bear,'bear');
+
+ const reasons=document.getElementById('detailEMAReasons');
+ if(reasons){
+  reasons.innerHTML=(stock?.emaSignalReasons||[]).map(v=>`<li>${v}</li>`).join('')||'<li>暫無足夠訊號</li>';
+ }
+
+ requestAnimationFrame(()=>drawEMA100Chart(stock));
+}
+
+
 let detailStock=null;
 
 window.openStockDetailByCode=function(code){
@@ -528,6 +679,7 @@ window.openStockDetailByCode=function(code){
  $('#detailVR').textContent=x.volumeRatio??'-';
  if($('#detailEMA100')) $('#detailEMA100').textContent=x.EMA100??'-';
  if($('#detailEMA100Strategy')) $('#detailEMA100Strategy').textContent=x.EMA100MACDStrategy?'成立':'未成立';
+ renderEMA100Signal(x);
 
  $('#detailSignal').className=`big-signal signal-${signal.type}`;
  $('#detailSignal').innerHTML=`<span class="signal-circle">${signal.icon}</span><b>${signal.label}</b>`;
@@ -646,3 +798,13 @@ refreshInstitutionalStatus();
 
 
 
+
+let emaChartResizeTimer=null;
+window.addEventListener('resize',()=>{
+ clearTimeout(emaChartResizeTimer);
+ emaChartResizeTimer=setTimeout(()=>{
+  if(detailStock && document.getElementById('detailOverlay')?.classList.contains('open')){
+   drawEMA100Chart(detailStock);
+  }
+ },120);
+});

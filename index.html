@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V8.1</title>
-<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=81">
+<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V8.2</title>
+<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=82">
 </head><body>
-<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V8.1</b></h1></div><span id="health">連線中</span></header>
+<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V8.2</b></h1></div><span id="health">連線中</span></header>
 <main>
 <nav class="tabs">
 <button class="tab active" data-p="scanPanel">AI 選股</button>
@@ -246,6 +246,7 @@
         <button type="button" class="reason-tab active" data-reason="tech" onclick="return switchReasonTab('tech')">技術分析</button>
         <button type="button" class="reason-tab" data-reason="inst" onclick="return switchReasonTab('inst')">法人分析</button>
         <button type="button" class="reason-tab" data-reason="main" onclick="return switchReasonTab('main')">主力分析</button>
+        <button type="button" class="reason-tab" data-reason="ema" onclick="return switchReasonTab('ema')">EMA100訊號</button>
       </div>
 
       <div class="reason-panels">
@@ -258,6 +259,52 @@
         <section class="reason-panel" data-reason-panel="main">
           <h4>主力原因</h4><ul id="detailMainReasons"></ul>
         </section>
+
+        <section class="reason-panel ema-signal-panel" data-reason-panel="ema">
+          <div class="ema-chart-head">
+            <div>
+              <h4>EMA100 趨勢圖</h4>
+              <p>價格線與 EMA100 的相對位置</p>
+            </div>
+            <div id="emaPositionBadge" class="ema-position neutral">判斷中</div>
+          </div>
+
+          <div class="ema-chart-wrap">
+            <canvas id="emaSignalChart" aria-label="個股價格與EMA100趨勢圖"></canvas>
+            <div class="ema-chart-legend">
+              <span><i class="legend-price"></i>個股價格</span>
+              <span><i class="legend-ema"></i>EMA100</span>
+            </div>
+          </div>
+
+          <div class="ema-position-grid">
+            <div><span>目前股價</span><b id="emaCurrentPrice">-</b></div>
+            <div><span>EMA100</span><b id="emaCurrentValue">-</b></div>
+            <div><span>距離 EMA100</span><b id="emaDistance">-</b></div>
+            <div><span>EMA100 方向</span><b id="emaDirection">-</b></div>
+          </div>
+
+          <div class="strength-card bull-card">
+            <div class="strength-title">
+              <span>偏多強度</span><strong id="bullStrengthText">0／5</strong>
+            </div>
+            <div id="bullStrengthLamps" class="strength-lamps bull"></div>
+          </div>
+
+          <div class="strength-card bear-card">
+            <div class="strength-title">
+              <span>偏空強度</span><strong id="bearStrengthText">0／5</strong>
+            </div>
+            <div id="bearStrengthLamps" class="strength-lamps bear"></div>
+          </div>
+
+          <div class="ema-signal-reasons">
+            <h4>訊號原因</h4>
+            <ul id="detailEMAReasons"></ul>
+          </div>
+
+          <p class="ema-disclaimer">此為條件累積訊號，不代表必然反轉，仍需搭配技術面、法人、主力與成交量確認。</p>
+        </section>
       </div>
 
       <div class="detail-actions">
@@ -267,5 +314,5 @@
   </section>
 </div>
 
-<script src="/app.js?v=81"></script>
+<script src="/app.js?v=82"></script>
 </body></html>

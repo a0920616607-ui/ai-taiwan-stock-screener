@@ -563,9 +563,57 @@ def analyze(code, name, period, inst):
         above_ema100 and ema100_rising and macd_golden_cross
     )
 
+    ema_distance_pct = (
+        ((c[i] - ema100_now) / ema100_now) * 100
+        if ema100_now not in (None, 0) else None
+    )
+
+    # EMA100 多空強度，各自 0~5 格。
+    bull_strength = 0
+    bear_strength = 0
+    ema_signal_reasons = []
+
+    if above_ema100:
+        bull_strength += 1
+        ema_signal_reasons.append("股價位於 EMA100 上方")
+    else:
+        bear_strength += 1
+        ema_signal_reasons.append("股價位於 EMA100 下方")
+
+    if ema100_rising:
+        bull_strength += 1
+        ema_signal_reasons.append("EMA100 方向上彎")
+    else:
+        bear_strength += 1
+        ema_signal_reasons.append("EMA100 尚未上彎")
+
+    if dif[i] > sig[i]:
+        bull_strength += 1
+        ema_signal_reasons.append("MACD 位於訊號線上方")
+    else:
+        bear_strength += 1
+        ema_signal_reasons.append("MACD 位於訊號線下方")
+
+    if hist[i] > 0:
+        bull_strength += 1
+        ema_signal_reasons.append("MACD 柱體為正")
+    elif hist[i] < 0:
+        bear_strength += 1
+        ema_signal_reasons.append("MACD 柱體為負")
+
     vol6 = sma(v, 6) or 1
     vr = v[i] / vol6 if vol6 else 0
     price_change = ((c[i] / c[p]) - 1) * 100 if c[p] else 0
+
+    if vr >= 1.2 and price_change >= 0:
+        bull_strength += 1
+        ema_signal_reasons.append("上漲並伴隨量能放大")
+    elif vr >= 1.2 and price_change < 0:
+        bear_strength += 1
+        ema_signal_reasons.append("下跌並伴隨量能放大")
+
+    bull_strength = max(0, min(5, bull_strength))
+    bear_strength = max(0, min(5, bear_strength))
 
     kcross = (
         K[i] is not None and D[i] is not None and
@@ -743,6 +791,17 @@ def analyze(code, name, period, inst):
         else "暫不列入"
     )
 
+    # 個股內頁圖形只傳最近 90 根，避免掃描結果過大。
+    chart_start = max(0, len(rows) - 90)
+    ema_chart = []
+    for idx in range(chart_start, len(rows)):
+        ema_value = ema100_series[idx] if idx < len(ema100_series) else None
+        ema_chart.append({
+            "date": rows[idx]["date"],
+            "close": round(c[idx], 2),
+            "ema100": round(ema_value, 2) if ema_value is not None else None,
+        })
+
     return {
         "code": code,
         "name": source_meta.get("name") if not name or name == code else name,
@@ -767,6 +826,11 @@ def analyze(code, name, period, inst):
         "aboveEMA100": above_ema100,
         "EMA100Rising": ema100_rising,
         "EMA100MACDStrategy": ema100_macd_strategy,
+        "EMADistancePct": round(ema_distance_pct, 2) if ema_distance_pct is not None else None,
+        "bullStrength": bull_strength,
+        "bearStrength": bear_strength,
+        "emaSignalReasons": ema_signal_reasons,
+        "emaChart": ema_chart,
         "volumeRatio": round(vr, 2),
         "status": status,
         "entry": "回測短期均線量縮止跌後分批" if ma5 and c[i] >= ma5 else "先等重新站回短期均線",
@@ -798,7 +862,7 @@ def handle_unexpected_error(exc):
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V8.1", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V8.2", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
