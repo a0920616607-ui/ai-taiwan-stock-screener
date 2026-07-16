@@ -799,3 +799,12 @@ body.modal-open{overflow:hidden}
 .single-ai-summary span{display:block;color:#91a7bd;font-size:12px;margin-bottom:5px}
 .single-ai-summary strong{font-size:22px}
 .single-ai-summary p{grid-column:1/-1;margin:0;color:#c4d3e2;line-height:1.65}
+
+/* V8.3.1 中文輸入修正 */
+#singleCode,
+#manualWatchCode{
+  font-size:16px;
+  ime-mode:auto;
+  -webkit-user-select:text;
+  user-select:text;
+}

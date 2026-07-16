@@ -888,7 +888,7 @@ def api_search():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V8.3", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V8.3.1", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():

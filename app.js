@@ -26,7 +26,28 @@ function bindStockAutocomplete(inputSelector,holderSelector,onSelect){
  const input=document.querySelector(inputSelector);
  const holder=document.querySelector(holderSelector);
  if(!input||!holder)return;
+ let composing=false;
+ input.addEventListener('compositionstart',()=>{composing=true;});
+ input.addEventListener('compositionend',()=>{
+  composing=false;
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+ });
+ input.addEventListener('keydown',async e=>{
+  if(e.key!=='Enter' || composing)return;
+  e.preventDefault();
+  try{
+   const rows=await searchStocks(input.value);
+   if(rows[0]){
+    input.value=rows[0].code;
+    input.dataset.stockName=rows[0].name;
+    input.dataset.market=rows[0].market;
+    holder.classList.remove('open');
+    onSelect?.(rows[0]);
+   }
+  }catch(_){}
+ });
  input.addEventListener('input',()=>{
+  if(composing)return;
   clearTimeout(stockSearchTimer);
   const q=input.value.trim();
   if(!q){holder.classList.remove('open');holder.innerHTML='';return;}
@@ -101,11 +122,15 @@ async function fetchJsonSafe(url, options={}){
     throw new Error('伺服器暫時回傳非資料頁面，請稍後重試。');
   }
 
+  if(!raw || !raw.trim()){
+    throw new Error('伺服器沒有回傳資料，請稍後再試。');
+  }
+
   let data;
   try{
-    data = raw ? JSON.parse(raw) : {};
+    data = JSON.parse(raw);
   }catch(_){
-    throw new Error('資料格式錯誤，請重新整理後再試。');
+    throw new Error('伺服器資料格式錯誤，請稍後再試。');
   }
 
   if(!response.ok || data.ok === false){
@@ -478,9 +503,8 @@ async function analyzeSingleStock(code, selectedPeriod=singlePeriod){
  $('#singleStatus').textContent='分析中…';
  $('#analyzeSingle').disabled=true;
  try{
-  const r=await fetch(`/api/stock/${code}?period=${selectedPeriod}`);
-  const d=await r.json();
-  if(!r.ok||d.ok===false) throw Error(d.error||'分析失敗');
+  const d=await fetchJsonSafe(`/api/stock/${code}?period=${selectedPeriod}`);
+  if(d.ok===false) throw Error(d.error||'分析失敗');
   singleResult=d.result;
   renderSingleResult(singleResult);
   $('#singleStatus').textContent=`${singleResult.name} ${singleResult.code}｜${labelPeriod(singleResult.period)}分析完成`;
