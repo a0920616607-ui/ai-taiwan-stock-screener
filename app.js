@@ -29,6 +29,8 @@ async function loadSectors(market){
    status.textContent='上櫃資料來源暫時未取得，請稍後按重新整理';
   }else{
    status.textContent=`共 ${rows.length} 個類股｜${data.stockCount} 檔股票`;
+   const timeEl=document.getElementById(market==='TWSE'?'twseSectorTime':'tpexSectorTime');
+   if(timeEl)timeEl.textContent=`資料時間：${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`;
   }
  }catch(e){
   grid.innerHTML='';
@@ -178,7 +180,111 @@ async function fetchJsonSafe(url, options={}){
 }
 
 const $=s=>document.querySelector(s);
-let universe=safeLoadUniverse(),results=[],allScannedResults=[],period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
+let universe=safeLoadUniverse(),results=[],allScannedResults=safeLoadRanking(),period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
+
+
+function rankingDayKey(date=new Date()){
+ const y=date.getFullYear();
+ const m=String(date.getMonth()+1).padStart(2,'0');
+ const d=String(date.getDate()).padStart(2,'0');
+ return `${y}-${m}-${d}`;
+}
+
+function loadRankingHistory(){
+ try{
+  const data=JSON.parse(localStorage.getItem('v85-ranking-history')||'{}');
+  return data&&typeof data==='object'?data:{};
+ }catch(e){return {};}
+}
+
+function saveDailyRankingSnapshot(){
+ try{
+  const history=loadRankingHistory();
+  const key=rankingDayKey();
+  history[key]=[...allScannedResults]
+   .sort((a,b)=>Number(b.aiScore??b.score??0)-Number(a.aiScore??a.score??0))
+   .slice(0,100)
+   .map(x=>({
+    code:x.code,name:x.name,market:x.market,period:x.period||'day',
+    close:x.close,change:x.change,changePct:x.changePct,
+    aiScore:Number(x.aiScore??x.score??0),
+    signal:x.signal,status:x.status,
+    savedAt:new Date().toISOString()
+   }));
+  const keys=Object.keys(history).sort().slice(-30);
+  const kept={};
+  keys.forEach(k=>kept[k]=history[k]);
+  localStorage.setItem('v85-ranking-history',JSON.stringify(kept));
+  renderRankingDateOptions();
+ }catch(e){}
+}
+
+function renderRankingDateOptions(){
+ const select=document.getElementById('rankingDate');
+ if(!select)return;
+ const current=select.value||'latest';
+ const keys=Object.keys(loadRankingHistory()).sort().reverse();
+ select.innerHTML='<option value="latest">最新資料</option>'+
+  keys.map(k=>`<option value="${k}">${k}</option>`).join('');
+ select.value=[...select.options].some(o=>o.value===current)?current:'latest';
+}
+
+function selectedRankingRows(){
+ const date=document.getElementById('rankingDate')?.value||'latest';
+ if(date==='latest')return [...allScannedResults];
+ return [...(loadRankingHistory()[date]||[])];
+}
+
+function rankingPreviousScore(code,dateKey){
+ const history=loadRankingHistory();
+ const keys=Object.keys(history).sort();
+ const idx=dateKey&&dateKey!=='latest'?keys.indexOf(dateKey):keys.length-1;
+ const previousKey=keys[idx-1];
+ if(!previousKey)return null;
+ const row=(history[previousKey]||[]).find(x=>x.code===code);
+ return row?Number(row.aiScore??row.score??0):null;
+}
+
+function rankingStreak(code,currentScore){
+ const history=loadRankingHistory();
+ const keys=Object.keys(history).sort().reverse().slice(0,3);
+ if(keys.length<3)return false;
+ const scores=keys.map(k=>{
+  const row=(history[k]||[]).find(x=>x.code===code);
+  return row?Number(row.aiScore??row.score??0):null;
+ });
+ return scores.every(v=>v!==null)&&scores[0]>=scores[1]&&scores[1]>=scores[2]&&scores[0]>scores[2];
+}
+
+function safeLoadRanking(){
+ try{
+  const rows=JSON.parse(localStorage.getItem('v85-ranking')||localStorage.getItem('v844-ranking')||'[]');
+  return Array.isArray(rows)?rows:[];
+ }catch(e){
+  return [];
+ }
+}
+
+function saveRanking(){
+ try{
+  localStorage.setItem('v85-ranking',JSON.stringify(allScannedResults.slice(0,300))); saveDailyRankingSnapshot();
+ }catch(e){}
+}
+
+function mergeRankingRows(rows){
+ const merged=new Map();
+ for(const item of allScannedResults){
+  if(item?.code)merged.set(`${item.code}:${item.period||'day'}`,item);
+ }
+ for(const item of (Array.isArray(rows)?rows:[])){
+  if(item?.code)merged.set(`${item.code}:${item.period||period}`,item);
+ }
+ allScannedResults=[...merged.values()]
+  .sort((a,b)=>Number(b.aiScore??b.score??0)-Number(a.aiScore??a.score??0))
+  .slice(0,300);
+ saveRanking();
+}
+
 function safeLoadUniverse(){
  try{
   const u=JSON.parse(localStorage.getItem('v63-universe')||'[]');
@@ -244,6 +350,8 @@ async function scanPage(){
   });
 
   results=Array.isArray(d.results)?d.results:[];
+  mergeRankingRows(results);
+  renderRanking();
   $('#progress').value=100;
   $('#scanned').textContent=Math.min((page+1)*pageSize,d.total||0);
   $('#high').textContent=results.filter(x=>x.score>=80).length;
@@ -877,21 +985,34 @@ $('#detailAddWatch').addEventListener('click',()=>{
 
 function renderRanking(){
  const holder=$('#rankingList');
- if(!holder) return;
+ if(!holder)return;
 
- const ranked=[...allScannedResults]
-  .sort((a,b)=>Number(b.aiScore||0)-Number(a.aiScore||0))
+ const selectedDate=document.getElementById('rankingDate')?.value||'latest';
+ const ranked=selectedRankingRows()
+  .sort((a,b)=>Number(b.aiScore??b.score??0)-Number(a.aiScore??a.score??0))
   .slice(0,30);
 
  holder.innerHTML=ranked.length?ranked.map((x,i)=>{
   const signal=getSignal(x);
+  const score=Number(x.aiScore??x.score??0);
+  const previous=rankingPreviousScore(x.code,selectedDate);
+  const delta=previous===null?null:score-previous;
+  const isNew=previous===null;
+  const hot=rankingStreak(x.code,score);
+  const changeText=isNew?'NEW':`${delta>0?'+':''}${delta}`;
+  const changeClass=isNew?'rank-new':delta>0?'rank-rise':delta<0?'rank-fall':'rank-flat';
   return `<button class="ranking-row rank-${signal.type}" onclick="openStockDetailByCode('${x.code}')" type="button">
     <strong class="rank-no">${i+1}</strong>
-    <span class="rank-stock"><b>${x.code} ${x.name}</b><small>${x.market==='TPEx'?'上櫃':'上市'}｜${labelPeriod(x.period)}</small></span>
-    <span class="rank-signal signal-${signal.type}">${signal.icon} ${signal.label}</span>
-    <strong class="rank-score">${x.aiScore}</strong>
+    <span class="rank-stock">
+      <b>${x.code} ${x.name}</b>
+      <small>${x.market==='TPEx'?'上櫃':'上市'}｜${labelPeriod(x.period)}</small>
+      <span class="rank-badges">${isNew?'<i class="badge-new">NEW</i>':''}${hot?'<i class="badge-hot">HOT</i>':''}</span>
+    </span>
+    <span class="rank-price"><b>${x.close??'-'}</b>${formatPriceChange(x)}</span>
+    <strong class="rank-score">${score}</strong>
+    <span class="rank-delta ${changeClass}">${changeText}</span>
   </button>`;
- }).join(''):'<p class="ranking-empty">請先開始 AI 掃描，排行榜才會出現資料。</p>';
+ }).join(''):'<p class="ranking-empty">尚無排行榜資料。完成 AI 掃描、單股分析或自選股分析後，會自動建立今日排行榜紀錄。</p>';
 }
 
 ['techFilter','sortMode'].forEach(id=>{
@@ -903,15 +1024,18 @@ if(marketFilter){
  marketFilter.addEventListener('change',()=>{
   page=0;
   results=[];
-  allScannedResults=[];
   renderResults();
+  renderRanking();
   updateMarketCounters(0);
   const label=marketFilter.value==='TPEx'?'上櫃':
               marketFilter.value==='TWSE'?'上市':'上市＋上櫃';
   document.getElementById('progressText').textContent=`已切換${label}，共 ${selectedMarketUniverse().length.toLocaleString()} 檔，請按開始 AI 掃描`;
  });
 }
-$('#refreshRanking')?.addEventListener('click',renderRanking);
+$('#refreshRanking')?.addEventListener('click',()=>{
+ allScannedResults=safeLoadRanking();
+ renderRanking();
+});
 renderRanking();
 
 async function refreshInstitutionalStatus(){
@@ -965,8 +1089,9 @@ window.openWatchStockAnalysis=async function(code,button=null){
   if(!stock){
    stock=await analyzeSingleStock(code,singlePeriod);
    if(!stock)throw new Error('分析失敗');
-   if(!allScannedResults.some(x=>x.code===stock.code))allScannedResults.push(stock);
+   mergeRankingRows([stock]);
    if(!results.some(x=>x.code===stock.code))results.push(stock);
+   renderRanking();
   }
   if(btn){
    btn.classList.remove('analyzing');
@@ -1003,3 +1128,16 @@ document.addEventListener('click',e=>{
 });
 
 document.querySelectorAll('.sector-refresh').forEach(btn=>btn.addEventListener('click',()=>loadSectors(btn.dataset.market)));
+
+renderRankingDateOptions();
+document.getElementById('rankingDate')?.addEventListener('change',renderRanking);
+document.getElementById('clearRankingHistory')?.addEventListener('click',()=>{
+ if(!confirm('確定清除排行榜歷史紀錄？'))return;
+ localStorage.removeItem('v85-ranking-history');
+ localStorage.removeItem('v85-ranking');
+ allScannedResults=[];
+ renderRankingDateOptions();
+ renderRanking();
+});
+saveDailyRankingSnapshot();
+renderRanking();

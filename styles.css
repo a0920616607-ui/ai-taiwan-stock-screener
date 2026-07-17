@@ -954,3 +954,256 @@ body.modal-open{overflow:hidden}
     transform:translateX(-12px);
   }
 }
+
+/* V8.4.4 AI 排行榜 */
+.ranking-row{
+  grid-template-columns:38px minmax(120px,1fr) 86px 76px 48px !important;
+}
+.rank-price{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  font-size:14px;
+  color:#f5f8fc;
+}
+.rank-price .price-change{
+  margin:0;
+  font-size:10px;
+}
+.rank-price .change-percent{
+  font-size:9px;
+}
+.rank-score{
+  text-align:center;
+}
+@media(max-width:430px){
+  .ranking-row{
+    grid-template-columns:28px minmax(104px,1fr) 70px 66px 42px !important;
+    gap:5px;
+    padding:11px 8px;
+  }
+  .rank-stock b{font-size:13px}
+  .rank-stock small{font-size:9px}
+  .rank-signal{font-size:10px}
+  .rank-price{font-size:12px}
+  .rank-score{font-size:18px}
+}
+
+/* =========================================================
+   V8.5 專業介面：三欄整齊導航、類股卡片、排行榜歷史
+   ========================================================= */
+:root{
+ --v85-panel:#071827;
+ --v85-panel2:#0b1d30;
+ --v85-border:#244666;
+ --v85-blue:#28c7ff;
+ --v85-purple:#6b4cff;
+}
+body{
+ background:
+  radial-gradient(circle at 50% -15%,rgba(30,127,190,.14),transparent 38%),
+  #04101c;
+}
+header{
+ position:relative;
+ top:auto;
+ padding:24px 4.5% 22px;
+ background:linear-gradient(180deg,#071827,#061522);
+}
+header small{font-size:13px}
+header h1{font-size:27px;margin-top:10px}
+header h1 b{font-size:14px}
+#health{font-size:15px}
+main{padding:16px;max-width:1040px}
+
+/* 3 × 2 導覽，所有按鈕大小完全一致 */
+.pro-nav{
+ display:grid!important;
+ grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:12px!important;
+ margin:12px 0 18px!important;
+}
+.pro-nav .tab{
+ min-width:0;
+ min-height:74px;
+ width:100%;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ gap:12px;
+ padding:12px 8px;
+ border-radius:17px;
+ background:linear-gradient(180deg,#0b2034,#091a2a);
+ border:1px solid #284968;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+ color:#d7e1ed;
+ font-size:16px;
+ line-height:1.15;
+ white-space:nowrap;
+}
+.pro-nav .tab.active{
+ background:linear-gradient(135deg,var(--v85-blue),var(--v85-purple))!important;
+ border-color:#48cfff;
+ box-shadow:0 7px 20px rgba(38,147,255,.22);
+ color:#fff!important;
+}
+.nav-icon{
+ display:inline-flex;
+ width:28px;
+ height:28px;
+ align-items:center;
+ justify-content:center;
+ font-family:Arial,sans-serif;
+ font-size:25px;
+ line-height:1;
+ flex:0 0 28px;
+}
+
+/* 卡片質感 */
+.card,.stats>div{
+ background:linear-gradient(180deg,#081a2b,#071624);
+ border-color:#244664;
+ border-radius:22px;
+}
+.sector-panel-card,.ranking-card{
+ padding:22px;
+ box-shadow:0 16px 36px rgba(0,0,0,.2);
+}
+.sector-page-head h2,.ranking-head h2{
+ font-size:28px;
+ margin:0 0 7px;
+}
+.sector-page-head p,.ranking-note{
+ font-size:14px;
+ line-height:1.7;
+}
+.sector-meta-row{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:12px;
+ margin:14px 0 12px;
+}
+.sector-time{
+ color:#92a8bd;
+ font-size:12px;
+ white-space:nowrap;
+}
+.sector-grid{
+ grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ gap:12px!important;
+}
+.sector-card{
+ min-height:145px;
+ display:flex;
+ flex-direction:column;
+ justify-content:center;
+ padding:17px!important;
+ border-radius:18px!important;
+ background:linear-gradient(180deg,#0a1d30,#081725)!important;
+ border-color:#284966!important;
+}
+.sector-card h3{font-size:17px!important}
+.sector-change{font-size:25px!important}
+.sector-card p{font-size:12px!important;line-height:1.5}
+
+/* 排行榜 */
+.ranking-toolbar{
+ display:flex;
+ gap:10px;
+ margin:14px 0;
+}
+.ranking-toolbar select{
+ flex:1;
+ padding:11px 13px;
+ border:1px solid #294c6c;
+ border-radius:12px;
+ color:#ecf5ff;
+ background:#0b2033;
+ font-size:14px;
+}
+.ranking-column-head{
+ display:grid;
+ grid-template-columns:42px minmax(140px,1fr) 92px 70px 58px;
+ gap:8px;
+ padding:10px 12px;
+ color:#8fa4b9;
+ font-size:11px;
+ border-top:1px solid #203e59;
+ border-bottom:1px solid #203e59;
+}
+.ranking-row{
+ grid-template-columns:42px minmax(140px,1fr) 92px 70px 58px!important;
+ gap:8px!important;
+ min-height:76px;
+ padding:10px 12px!important;
+ border-radius:0!important;
+ border-left:0!important;
+ border-right:0!important;
+ background:transparent!important;
+ border-bottom:1px solid #1d3953!important;
+}
+.ranking-row:hover{background:#0b2237!important}
+.rank-stock b{font-size:15px}
+.rank-stock small{font-size:10px}
+.rank-badges{display:flex;gap:4px;margin-top:4px}
+.rank-badges i{
+ font-style:normal;
+ font-size:8px;
+ border-radius:5px;
+ padding:2px 5px;
+}
+.badge-new{background:#1e90ff;color:#fff}
+.badge-hot{background:#ff5d36;color:#fff}
+.rank-delta{
+ font-weight:900;
+ font-size:13px;
+ text-align:center;
+}
+.rank-new{color:#30b9ff}
+.rank-rise{color:#ff4c58}
+.rank-fall{color:#28cf72}
+.rank-flat{color:#90a3b5}
+
+/* 手機仍保持 3 欄整齊，不換成兩欄 */
+@media(max-width:720px){
+ header{padding:20px 16px 18px}
+ header h1{font-size:24px}
+ main{padding:14px 16px}
+ .pro-nav{gap:10px!important}
+ .pro-nav .tab{
+  min-height:70px;
+  gap:5px;
+  padding:9px 4px;
+  border-radius:15px;
+  font-size:14px;
+ }
+ .nav-icon{
+  width:22px;height:22px;flex-basis:22px;font-size:20px;
+ }
+ .sector-panel-card,.ranking-card{padding:18px 14px}
+ .sector-page-head h2,.ranking-head h2{font-size:25px}
+ .sector-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .sector-card{min-height:132px;padding:14px!important}
+ .sector-card h3{font-size:15px!important}
+ .sector-change{font-size:22px!important}
+ .ranking-column-head{
+  grid-template-columns:26px minmax(102px,1fr) 64px 48px 40px;
+  gap:4px;padding:8px 5px;font-size:9px;
+ }
+ .ranking-row{
+  grid-template-columns:26px minmax(102px,1fr) 64px 48px 40px!important;
+  gap:4px!important;padding:10px 5px!important;
+ }
+ .rank-stock b{font-size:12px}
+ .rank-stock small{font-size:8px}
+ .rank-price{font-size:11px}
+ .rank-score{font-size:17px}
+ .rank-delta{font-size:10px}
+}
+@media(max-width:380px){
+ .pro-nav .tab{font-size:13px}
+ .nav-icon{display:none}
+}

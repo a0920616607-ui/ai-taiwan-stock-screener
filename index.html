@@ -1,18 +1,18 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V8.4.3</title>
-<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=843">
+<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V8.5</title>
+<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=85">
 </head><body>
-<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V8.4.3</b></h1></div><span id="health">連線中</span></header>
+<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V8.5</b></h1></div><span id="health">連線中</span></header>
 <main>
-<nav class="tabs">
-<button class="tab active" data-p="scanPanel">AI 選股</button>
-<button class="tab" data-p="rankingPanel">AI 排行榜</button>
-<button class="tab" data-p="singlePanel">單股分析</button>
-<button class="tab" data-p="watchPanel">自選股</button>
-<button class="tab" data-p="twseSectorsPanel">上市類股</button>
-<button class="tab" data-p="tpexSectorsPanel">上櫃類股</button>
+<nav class="tabs pro-nav" aria-label="主要功能">
+<button class="tab active" data-p="scanPanel"><span class="nav-icon">◎</span><span>AI 選股</span></button>
+<button class="tab" data-p="rankingPanel"><span class="nav-icon">♕</span><span>AI 排行榜</span></button>
+<button class="tab" data-p="singlePanel"><span class="nav-icon">⌁</span><span>單股分析</span></button>
+<button class="tab" data-p="watchPanel"><span class="nav-icon">☆</span><span>自選股</span></button>
+<button class="tab" data-p="twseSectorsPanel"><span class="nav-icon">↗</span><span>上市類股</span></button>
+<button class="tab" data-p="tpexSectorsPanel"><span class="nav-icon">▥</span><span>上櫃類股</span></button>
 </nav>
 
 <section id="scanPanel" class="panel active">
@@ -99,7 +99,14 @@
       </div>
       <button id="refreshRanking" type="button">更新排行榜</button>
     </div>
-    <p class="ranking-note">依目前已掃描股票的 AI 總分排序；掃描更多頁面後，排行榜會自動累積。</p>
+    <p class="ranking-note">保留每日排行榜紀錄，顯示分數變化、新進榜與連續轉強。</p>
+    <div class="ranking-toolbar">
+      <select id="rankingDate" aria-label="排行榜日期"><option value="latest">最新資料</option></select>
+      <button id="clearRankingHistory" type="button" class="secondary">清除歷史</button>
+    </div>
+    <div class="ranking-column-head">
+      <span>名次</span><span>代號／名稱</span><span>收盤價</span><span>AI分數</span><span>變化</span>
+    </div>
     <div id="rankingList" class="ranking-list"></div>
   </section>
 </section>
@@ -174,7 +181,7 @@
       <div><h2>上市類股漲跌</h2><p>依成分股當日平均漲跌幅排序</p></div>
       <button type="button" class="sector-refresh" data-market="TWSE">重新整理</button>
     </div>
-    <div id="twseSectorStatus" class="sector-status">點擊上方「上市類股」開始載入</div>
+    <div class="sector-meta-row"><div id="twseSectorStatus" class="sector-status">點擊上方「上市類股」開始載入</div><span id="twseSectorTime" class="sector-time">—</span></div>
     <div id="twseSectorGrid" class="sector-grid"></div>
   </section>
 </section>
@@ -185,7 +192,7 @@
       <div><h2>上櫃類股漲跌</h2><p>依成分股當日平均漲跌幅排序</p></div>
       <button type="button" class="sector-refresh" data-market="TPEx">重新整理</button>
     </div>
-    <div id="tpexSectorStatus" class="sector-status">點擊上方「上櫃類股」開始載入</div>
+    <div class="sector-meta-row"><div id="tpexSectorStatus" class="sector-status">點擊上方「上櫃類股」開始載入</div><span id="tpexSectorTime" class="sector-time">—</span></div>
     <div id="tpexSectorGrid" class="sector-grid"></div>
   </section>
 </section>
@@ -334,5 +341,5 @@
   </section>
 </div>
 
-<script src="/app.js?v=843"></script>
+<script src="/app.js?v=85"></script>
 </body></html>
