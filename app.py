@@ -1049,9 +1049,53 @@ def api_sectors():
         return api_error("類股資料暫時無法取得，請稍後再試。", 503, detail=str(exc)[:180])
 
 
+
+@app.get("/api/sector-members")
+def api_sector_members():
+    market = str(request.args.get("market", "TWSE"))
+    sector = str(request.args.get("sector", "")).strip()
+    sort_mode = str(request.args.get("sort", "up"))
+    try:
+        rows = all_universe()
+        if market in ("TWSE", "TPEx"):
+            rows = [x for x in rows if x.get("market") == market]
+        if sector:
+            rows = [
+                x for x in rows
+                if str(x.get("industry") or classify_sector(x.get("name")) or "其他") == sector
+            ]
+
+        enriched = []
+        for item in rows:
+            change = float(item.get("change") or 0)
+            pct = float(item.get("changePct") or 0)
+            enriched.append({
+                "code": item.get("code"),
+                "name": item.get("name"),
+                "market": item.get("market"),
+                "close": item.get("close"),
+                "change": round(change, 2),
+                "changePct": round(pct, 2),
+                "aiScore": item.get("aiScore", item.get("score", 0)) or 0,
+                "institutional": item.get("institutional", 0) or 0,
+                "mainForce": item.get("mainForce", 0) or 0,
+            })
+
+        if sort_mode == "down":
+            enriched.sort(key=lambda x: x["changePct"])
+        elif sort_mode == "flat":
+            enriched.sort(key=lambda x: abs(x["changePct"]))
+        else:
+            enriched.sort(key=lambda x: x["changePct"], reverse=True)
+
+        return jsonify({"ok": True, "results": enriched[:60], "count": len(enriched)})
+    except Exception as exc:
+        return api_error("類股成分股資料暫時無法取得。", 503, detail=str(exc)[:180])
+
+
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V8.5", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V9", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():

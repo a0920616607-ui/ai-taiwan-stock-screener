@@ -25,6 +25,8 @@ async function loadSectors(market){
   const data=await fetchJsonSafe(`/api/sectors?market=${encodeURIComponent(market)}`);
   const rows=Array.isArray(data.results)?data.results:[];
   grid.innerHTML=rows.map(sectorCardHtml).join('')||'<div class="sector-loading">目前沒有資料</div>';
+  if(rows[0] && !activeSectorByMarket[market])activeSectorByMarket[market]=rows[0].sector;
+  setTimeout(()=>loadSectorMembers(market),50);
   if(Number(data.stockCount||0)===0){
    status.textContent='上櫃資料來源暫時未取得，請稍後按重新整理';
   }else{
@@ -1141,3 +1143,59 @@ document.getElementById('clearRankingHistory')?.addEventListener('click',()=>{
 });
 saveDailyRankingSnapshot();
 renderRanking();
+
+
+let activeSectorByMarket={TWSE:'',TPEx:''};
+let sectorSortByMarket={TWSE:'up',TPEx:'up'};
+
+function sectorMemberRowHtml(x,index){
+ const pct=Number(x.changePct||0);
+ const ch=Number(x.change||0);
+ const cls=pct>0?'price-up':pct<0?'price-down':'price-flat';
+ const symbol=pct>0?'▲':pct<0?'▼':'－';
+ return `<button class="sector-member-row" type="button" onclick="analyzeSingleStock('${x.code}','day').then(()=>openStockDetailByCode('${x.code}'))">
+   <span class="sector-rank">${index+1}</span>
+   <span class="sector-stock"><b>${x.code}</b><strong>${x.name}</strong><small>${x.market==='TPEx'?'上櫃':'上市'}</small></span>
+   <span class="sector-close">${x.close??'-'}</span>
+   <span class="sector-move ${cls}"><span>${symbol} ${Math.abs(ch).toFixed(2)}</span></span>
+   <span class="sector-pct ${cls}">${Math.abs(pct).toFixed(2)}%</span>
+   <span class="sector-ai">${Number(x.aiScore||0)}</span>
+   <span class="sector-flow">法人 <b class="${Number(x.institutional||0)>=0?'price-up':'price-down'}">${Number(x.institutional||0)>=0?'+':''}${Number(x.institutional||0)}</b><small>主力 ${Number(x.mainForce||0)}</small></span>
+   <span class="sector-arrow">›</span>
+ </button>`;
+}
+
+async function loadSectorMembers(market){
+ const holder=document.getElementById(market==='TWSE'?'twseSectorMembers':'tpexSectorMembers');
+ if(!holder)return;
+ holder.innerHTML='<div class="sector-loading">載入成分股中…</div>';
+ const sector=activeSectorByMarket[market]||'';
+ const sort=sectorSortByMarket[market]||'up';
+ try{
+  const d=await fetchJsonSafe(`/api/sector-members?market=${market}&sector=${encodeURIComponent(sector)}&sort=${sort}`);
+  const rows=Array.isArray(d.results)?d.results:[];
+  holder.innerHTML=rows.length?rows.map(sectorMemberRowHtml).join(''):'<div class="sector-loading">目前沒有資料</div>';
+ }catch(e){
+  holder.innerHTML=`<div class="sector-loading">${e.message}</div>`;
+ }
+}
+
+document.addEventListener('click',e=>{
+ const card=e.target.closest('.sector-card');
+ if(card){
+  const panel=card.closest('#twseSectorsPanel,#tpexSectorsPanel');
+  const market=panel?.id==='tpexSectorsPanel'?'TPEx':'TWSE';
+  const title=card.querySelector('h3')?.textContent||'';
+  activeSectorByMarket[market]=title.replace(/（.*?）/g,'').trim();
+  panel.querySelectorAll('.sector-card').forEach(x=>x.classList.toggle('selected',x===card));
+  loadSectorMembers(market);
+ }
+ const sortBtn=e.target.closest('.sector-sort');
+ if(sortBtn){
+  const panel=sortBtn.closest('#twseSectorsPanel,#tpexSectorsPanel');
+  const market=panel?.id==='tpexSectorsPanel'?'TPEx':'TWSE';
+  sectorSortByMarket[market]=sortBtn.dataset.sort||'up';
+  panel.querySelectorAll('.sector-sort').forEach(x=>x.classList.toggle('active',x===sortBtn));
+  loadSectorMembers(market);
+ }
+});

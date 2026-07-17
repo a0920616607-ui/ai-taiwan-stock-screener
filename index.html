@@ -1,18 +1,24 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V8.5</title>
-<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=85">
+<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V9</title>
+<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=90">
 </head><body>
-<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V8.5</b></h1></div><span id="health">連線中</span></header>
+<header class="v9-header">
+      <div class="brand-block">
+        <small>TAIWAN STOCK AI</small>
+        <h1>AI 台灣個股智慧選股 <b>V9</b></h1>
+      </div>
+      <span id="health" class="health-badge"><span class="cloud-mark">⌁</span>連線中</span>
+    </header>
 <main>
-<nav class="tabs pro-nav" aria-label="主要功能">
-<button class="tab active" data-p="scanPanel"><span class="nav-icon">◎</span><span>AI 選股</span></button>
-<button class="tab" data-p="rankingPanel"><span class="nav-icon">♕</span><span>AI 排行榜</span></button>
-<button class="tab" data-p="singlePanel"><span class="nav-icon">⌁</span><span>單股分析</span></button>
-<button class="tab" data-p="watchPanel"><span class="nav-icon">☆</span><span>自選股</span></button>
-<button class="tab" data-p="twseSectorsPanel"><span class="nav-icon">↗</span><span>上市類股</span></button>
-<button class="tab" data-p="tpexSectorsPanel"><span class="nav-icon">▥</span><span>上櫃類股</span></button>
+<nav class="tabs pro-nav v9-nav" aria-label="主要功能">
+<button class="tab active" data-p="scanPanel"><span class="nav-icon target-icon">◎</span><span>AI 選股</span></button>
+<button class="tab" data-p="rankingPanel"><span class="nav-icon trophy-icon">♕</span><span>AI 排行榜</span></button>
+<button class="tab" data-p="singlePanel"><span class="nav-icon candle-icon">╫</span><span>單股分析</span></button>
+<button class="tab" data-p="watchPanel"><span class="nav-icon star-icon">☆</span><span>自選股</span></button>
+<button class="tab" data-p="twseSectorsPanel"><span class="nav-icon trend-icon">↗</span><span>上市類股</span></button>
+<button class="tab" data-p="tpexSectorsPanel"><span class="nav-icon chart-icon">▥</span><span>上櫃類股</span></button>
 </nav>
 
 <section id="scanPanel" class="panel active">
@@ -183,6 +189,21 @@
     </div>
     <div class="sector-meta-row"><div id="twseSectorStatus" class="sector-status">點擊上方「上市類股」開始載入</div><span id="twseSectorTime" class="sector-time">—</span></div>
     <div id="twseSectorGrid" class="sector-grid"></div>
+    <section class="sector-members-card">
+      <div class="sector-members-head">
+        <h3>類股成分股漲跌排行</h3>
+        <div class="sector-sort-tabs">
+          <button type="button" class="sector-sort active" data-sort="up">漲幅排行</button>
+          <button type="button" class="sector-sort" data-sort="down">跌幅排行</button>
+          <button type="button" class="sector-sort" data-sort="flat">平盤排行</button>
+        </div>
+      </div>
+      <div class="sector-member-head">
+        <span>代號／名稱</span><span>收盤價</span><span>漲跌</span><span>漲跌幅</span><span>AI總分</span><span>法人／主力</span>
+      </div>
+      <div class="sector-member-list" id="twseSectorMembers"></div>
+    </section>
+
   </section>
 </section>
 
@@ -194,6 +215,21 @@
     </div>
     <div class="sector-meta-row"><div id="tpexSectorStatus" class="sector-status">點擊上方「上櫃類股」開始載入</div><span id="tpexSectorTime" class="sector-time">—</span></div>
     <div id="tpexSectorGrid" class="sector-grid"></div>
+    <section class="sector-members-card">
+      <div class="sector-members-head">
+        <h3>類股成分股漲跌排行</h3>
+        <div class="sector-sort-tabs">
+          <button type="button" class="sector-sort active" data-sort="up">漲幅排行</button>
+          <button type="button" class="sector-sort" data-sort="down">跌幅排行</button>
+          <button type="button" class="sector-sort" data-sort="flat">平盤排行</button>
+        </div>
+      </div>
+      <div class="sector-member-head">
+        <span>代號／名稱</span><span>收盤價</span><span>漲跌</span><span>漲跌幅</span><span>AI總分</span><span>法人／主力</span>
+      </div>
+      <div class="sector-member-list" id="tpexSectorMembers"></div>
+    </section>
+
   </section>
 </section>
 
@@ -341,5 +377,5 @@
   </section>
 </div>
 
-<script src="/app.js?v=85"></script>
+<script src="/app.js?v=90"></script>
 </body></html>

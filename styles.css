@@ -1207,3 +1207,415 @@ main{padding:16px;max-width:1040px}
  .pro-nav .tab{font-size:13px}
  .nav-icon{display:none}
 }
+
+/* =========================================================
+   V9 PROFESSIONAL — 真正依照右側參考畫面重做
+   ========================================================= */
+:root{
+ --v9-bg:#03111d;
+ --v9-panel:#061827;
+ --v9-panel2:#0a1d2f;
+ --v9-line:#244965;
+ --v9-text:#f4f7fb;
+ --v9-muted:#9aacbd;
+ --v9-cyan:#21c9ff;
+ --v9-blue:#2998ff;
+ --v9-purple:#7048ff;
+ --v9-red:#ff4c5a;
+ --v9-green:#22cd69;
+}
+*{box-sizing:border-box}
+html,body{background:#03111d!important}
+body{
+ min-height:100vh;
+ color:var(--v9-text);
+ background:
+  radial-gradient(circle at 18% -10%,rgba(18,94,143,.22),transparent 34%),
+  radial-gradient(circle at 85% 5%,rgba(72,55,155,.11),transparent 28%),
+  linear-gradient(180deg,#041421 0%,#020c15 100%)!important;
+}
+.v9-header{
+ position:relative!important;
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:20px;
+ max-width:1180px;
+ margin:auto;
+ padding:28px 30px 18px!important;
+ border-bottom:0!important;
+ background:transparent!important;
+}
+.brand-block small{
+ color:#2ac8ff!important;
+ letter-spacing:.18em;
+ font-size:15px!important;
+ font-weight:700;
+}
+.brand-block h1{
+ margin:10px 0 0!important;
+ color:#fff;
+ font-size:31px!important;
+ line-height:1.12;
+ letter-spacing:-.03em;
+}
+.brand-block h1 b{
+ color:#25bfff!important;
+ font-size:17px!important;
+ margin-left:7px;
+}
+.health-badge{
+ display:flex!important;
+ align-items:center;
+ gap:8px;
+ color:#3dde8a!important;
+ font-size:17px!important;
+ white-space:nowrap;
+}
+.cloud-mark{
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ width:30px;height:22px;
+ border:2px solid currentColor;
+ border-radius:13px;
+ font-size:17px;
+ line-height:1;
+}
+main{
+ max-width:1180px!important;
+ margin:auto!important;
+ padding:0 30px 52px!important;
+}
+.v9-nav{
+ display:grid!important;
+ grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ gap:12px 18px!important;
+ margin:10px 0 18px!important;
+}
+.v9-nav .tab{
+ min-width:0!important;
+ height:76px!important;
+ width:100%!important;
+ display:flex!important;
+ flex-direction:row!important;
+ align-items:center!important;
+ justify-content:center!important;
+ gap:12px!important;
+ padding:0 16px!important;
+ border:1px solid #244b68!important;
+ border-radius:16px!important;
+ background:linear-gradient(180deg,#071c2d,#061724)!important;
+ color:#eef4fa!important;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 8px 20px rgba(0,0,0,.08)!important;
+ font-size:18px!important;
+ font-weight:800!important;
+ white-space:nowrap!important;
+}
+.v9-nav .tab.active{
+ background:linear-gradient(135deg,#22c7ff 0%,#287eff 47%,#7547ff 100%)!important;
+ border-color:#4cd7ff!important;
+ box-shadow:0 8px 24px rgba(51,123,255,.27),inset 0 1px 0 rgba(255,255,255,.24)!important;
+}
+.nav-icon{
+ width:34px!important;
+ height:34px!important;
+ flex:0 0 34px!important;
+ display:inline-flex!important;
+ align-items:center!important;
+ justify-content:center!important;
+ color:inherit!important;
+ font-family:Arial,sans-serif!important;
+ font-size:29px!important;
+ font-weight:400!important;
+ line-height:1!important;
+}
+.card,.stats>div{
+ border:1px solid #234660!important;
+ border-radius:20px!important;
+ background:linear-gradient(180deg,#071a2a,#061624)!important;
+ box-shadow:0 14px 32px rgba(0,0,0,.14)!important;
+}
+.panel>.card:first-child,
+.sector-panel-card,
+.ranking-card{
+ padding:24px!important;
+}
+.sector-page-head{
+ display:grid!important;
+ grid-template-columns:1fr auto!important;
+ align-items:start!important;
+ gap:18px!important;
+}
+.sector-page-head h2{
+ font-size:32px!important;
+ line-height:1.1!important;
+ margin:0 0 8px!important;
+ letter-spacing:-.035em!important;
+}
+.sector-page-head p{
+ color:#95a8ba!important;
+ font-size:16px!important;
+ margin:0!important;
+}
+.sector-refresh,#refreshRanking{
+ min-height:54px!important;
+ padding:0 22px!important;
+ border:1px solid #3c7197!important;
+ border-radius:14px!important;
+ background:linear-gradient(180deg,#12334e,#0b263b)!important;
+ color:#fff!important;
+ font-size:16px!important;
+ font-weight:800!important;
+}
+.sector-meta-row{
+ margin:8px 0 14px!important;
+}
+.sector-status{
+ color:#dfe8ef!important;
+ font-size:15px!important;
+}
+.sector-time{
+ color:#9fb0bf!important;
+ font-size:14px!important;
+}
+.sector-grid{
+ display:grid!important;
+ grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ gap:12px!important;
+ margin-top:8px!important;
+}
+.sector-card{
+ min-height:142px!important;
+ display:flex!important;
+ flex-direction:column!important;
+ justify-content:center!important;
+ padding:18px 20px!important;
+ border:1px solid #284c68!important;
+ border-radius:17px!important;
+ background:linear-gradient(180deg,#081d2f,#071724)!important;
+ cursor:pointer!important;
+ transition:.16s ease!important;
+}
+.sector-card:hover,.sector-card.selected{
+ transform:translateY(-2px);
+ border-color:#2fc9ff!important;
+ box-shadow:0 10px 24px rgba(25,139,221,.16)!important;
+}
+.sector-card h3{
+ margin:0 0 13px!important;
+ color:#fff!important;
+ font-size:18px!important;
+ line-height:1.25!important;
+}
+.sector-change{
+ font-size:28px!important;
+ margin-bottom:10px!important;
+}
+.sector-card p{
+ margin:0!important;
+ color:#a5b4c2!important;
+ font-size:13px!important;
+}
+
+/* 類股成分股專業排行 */
+.sector-members-card{
+ margin-top:16px;
+ padding:18px 14px 8px;
+ border:1px solid #244964;
+ border-radius:20px;
+ background:linear-gradient(180deg,#071a2a,#061522);
+}
+.sector-members-head{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:14px;
+ padding:0 8px 14px;
+ border-bottom:1px solid #203f59;
+}
+.sector-members-head h3{
+ margin:0;
+ font-size:23px;
+}
+.sector-sort-tabs{
+ display:flex;
+ padding:3px;
+ border:1px solid #274967;
+ border-radius:11px;
+ background:#071624;
+}
+.sector-sort{
+ min-width:96px;
+ padding:9px 14px;
+ border:0;
+ border-radius:8px;
+ background:transparent;
+ color:#b2c0cc;
+ font-size:13px;
+}
+.sector-sort.active{
+ background:linear-gradient(135deg,#22c7ff,#654cff);
+ color:#fff;
+}
+.sector-member-head,
+.sector-member-row{
+ display:grid;
+ grid-template-columns:minmax(166px,1.3fr) 90px 90px 88px 70px 125px 22px;
+ align-items:center;
+ gap:10px;
+}
+.sector-member-head{
+ padding:12px 10px;
+ color:#96a8b8;
+ font-size:12px;
+ border-bottom:1px solid #24425d;
+}
+.sector-member-row{
+ width:100%;
+ min-height:76px;
+ padding:10px;
+ border:0;
+ border-bottom:1px solid #1f3b53;
+ background:transparent;
+ color:#fff;
+ text-align:left;
+ cursor:pointer;
+}
+.sector-member-row:hover{background:#0a2235}
+.sector-rank{
+ color:#20baff;
+ font-size:19px;
+ font-weight:900;
+}
+.sector-stock{
+ display:grid;
+ grid-template-columns:58px 1fr auto;
+ align-items:center;
+ gap:8px;
+}
+.sector-stock b{color:#25baff;font-size:17px}
+.sector-stock strong{font-size:15px}
+.sector-stock small{color:#9aaaba;font-size:11px}
+.sector-close{font-size:17px;font-weight:800}
+.sector-move,.sector-pct{font-size:16px;font-weight:900}
+.sector-ai{color:#ff4d59;font-size:24px;font-weight:900}
+.sector-flow{display:flex;flex-direction:column;font-size:13px}
+.sector-flow small{margin-top:3px;color:#d6dee6}
+.sector-arrow{color:#9eafbd;font-size:31px;text-align:right}
+
+/* 排行榜也採右圖表格視覺 */
+.ranking-head{
+ align-items:center!important;
+}
+.ranking-head small{
+ color:#27c6ff!important;
+ letter-spacing:.18em!important;
+ font-size:14px!important;
+}
+.ranking-head h2{
+ font-size:31px!important;
+ margin:8px 0 0!important;
+}
+.ranking-note{font-size:15px!important}
+.ranking-column-head,
+.ranking-row{
+ grid-template-columns:48px minmax(170px,1.3fr) 90px 84px 66px!important;
+}
+.ranking-column-head{
+ color:#95a7b8!important;
+ border-color:#24445d!important;
+}
+.ranking-row{
+ min-height:78px!important;
+ border-bottom:1px solid #203d56!important;
+}
+.rank-stock b{font-size:16px!important}
+.rank-score{font-size:25px!important}
+
+/* AI 掃描主頁 */
+.main-actions{
+ gap:18px!important;
+}
+.main-actions button{
+ height:70px!important;
+ font-size:20px!important;
+ border-radius:0!important;
+}
+.periods{
+ padding:24px!important;
+}
+.filter-panel{
+ padding:26px!important;
+ gap:22px!important;
+}
+.scan-card{padding:22px!important}
+.scan-title-row h3{font-size:29px!important}
+.pro-list-head,.pro-row{
+ grid-template-columns:minmax(150px,1.3fr) 88px 84px 70px minmax(122px,1fr)!important;
+}
+
+/* Desktop-like professional spacing on phone */
+@media(max-width:760px){
+ .v9-header{padding:24px 16px 17px!important}
+ .brand-block small{font-size:12px!important}
+ .brand-block h1{font-size:24px!important}
+ .brand-block h1 b{font-size:14px!important}
+ .health-badge{font-size:14px!important}
+ main{padding:0 16px 40px!important}
+ .v9-nav{gap:10px!important}
+ .v9-nav .tab{
+  height:70px!important;
+  gap:7px!important;
+  padding:0 7px!important;
+  font-size:14px!important;
+  border-radius:14px!important;
+ }
+ .nav-icon{width:25px!important;height:25px!important;flex-basis:25px!important;font-size:23px!important}
+ .panel>.card:first-child,.sector-panel-card,.ranking-card{padding:18px 14px!important}
+ .sector-page-head h2{font-size:27px!important}
+ .sector-page-head p{font-size:13px!important}
+ .sector-refresh,#refreshRanking{min-height:48px!important;padding:0 15px!important;font-size:14px!important}
+ .sector-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:9px!important}
+ .sector-card{min-height:120px!important;padding:13px 10px!important}
+ .sector-card h3{font-size:14px!important;margin-bottom:9px!important}
+ .sector-change{font-size:21px!important;margin-bottom:7px!important}
+ .sector-card p{font-size:10px!important;white-space:nowrap!important}
+ .sector-members-card{padding:14px 8px 6px}
+ .sector-members-head{align-items:flex-start;flex-direction:column}
+ .sector-members-head h3{font-size:21px}
+ .sector-sort-tabs{width:100%}
+ .sector-sort{flex:1;min-width:0;padding:8px 5px;font-size:12px}
+ .sector-member-head{display:none}
+ .sector-member-row{
+  grid-template-columns:24px minmax(100px,1.1fr) 58px 58px 52px 76px 14px;
+  gap:5px;
+  min-height:72px;
+  padding:8px 4px;
+ }
+ .sector-rank{font-size:15px}
+ .sector-stock{grid-template-columns:1fr;gap:0}
+ .sector-stock b{font-size:14px}
+ .sector-stock strong{font-size:12px}
+ .sector-stock small{font-size:9px}
+ .sector-close{font-size:13px}
+ .sector-move,.sector-pct{font-size:12px}
+ .sector-ai{font-size:18px}
+ .sector-flow{font-size:10px}
+ .sector-arrow{font-size:22px}
+ .ranking-column-head,.ranking-row{
+  grid-template-columns:28px minmax(108px,1.2fr) 62px 48px 38px!important;
+  gap:4px!important;
+ }
+ .ranking-column-head{font-size:9px!important}
+ .ranking-row{padding:9px 4px!important}
+ .rank-stock b{font-size:12px!important}
+ .rank-score{font-size:18px!important}
+ .main-actions button{height:62px!important;font-size:17px!important}
+ .periods,.filter-panel,.scan-card{padding:16px!important}
+}
+@media(max-width:390px){
+ .nav-icon{display:none!important}
+ .v9-nav .tab{font-size:13px!important}
+ .sector-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
