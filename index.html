@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V8.3.1</title>
-<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=831">
+<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V8.4</title>
+<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=84">
 </head><body>
-<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V8.3.1</b></h1></div><span id="health">連線中</span></header>
+<header><div><small>TAIWAN STOCK AI</small><h1>AI 台灣個股智慧選股 <b>V8.4</b></h1></div><span id="health">連線中</span></header>
 <main>
 <nav class="tabs">
 <button class="tab active" data-p="scanPanel">AI 選股</button>
@@ -171,6 +171,17 @@
 <p>每頁掃描 20 檔，使用上一頁、下一頁切換批次。點星號可加入指定自選股分類。</p>
 <div class="note">上市每日名單使用證交所公開資料；歷史行情由自動歷史行情來源取得。首次掃描需要較久，免費 Render 休眠後也可能等待約 30～60 秒。</div>
 </section></section>
+
+<section id="twseSectorsPage" class="page sector-page">
+  <div class="sector-page-head"><div><h2>上市類股漲跌</h2><p>依成分股當日平均漲跌幅排序</p></div><button type="button" class="sector-refresh" data-market="TWSE">重新整理</button></div>
+  <div id="twseSectorStatus" class="sector-status">尚未載入</div>
+  <div id="twseSectorGrid" class="sector-grid"></div>
+</section>
+<section id="tpexSectorsPage" class="page sector-page">
+  <div class="sector-page-head"><div><h2>上櫃類股漲跌</h2><p>依成分股當日平均漲跌幅排序</p></div><button type="button" class="sector-refresh" data-market="TPEx">重新整理</button></div>
+  <div id="tpexSectorStatus" class="sector-status">尚未載入</div>
+  <div id="tpexSectorGrid" class="sector-grid"></div>
+</section>
 </main>
 <dialog id="groupDialog">
       <h3 id="groupDialogTitle">選擇自選分類</h3>
@@ -314,5 +325,5 @@
   </section>
 </div>
 
-<script src="/app.js?v=831"></script>
+<script src="/app.js?v=84"></script>
 </body></html>

@@ -1,4 +1,35 @@
 
+function formatPriceChange(stock){
+ const change=Number(stock?.change ?? 0);
+ const pct=Number(stock?.changePct ?? stock?.priceChange ?? 0);
+ const cls=change>0?'price-up':change<0?'price-down':'price-flat';
+ const symbol=change>0?'▲':change<0?'▼':'－';
+ return `<span class="price-change ${cls}"><span class="change-symbol">${symbol}</span><span class="change-value">${Math.abs(change).toFixed(2)}（${Math.abs(pct).toFixed(2)}%）</span></span>`;
+}
+function sectorCardHtml(row){
+ const pct=Number(row.changePct||0);
+ const cls=pct>0?'price-up':pct<0?'price-down':'price-flat';
+ const symbol=pct>0?'▲':pct<0?'▼':'－';
+ return `<article class="sector-card"><h3>${row.sector}（${row.count}）</h3><div class="sector-change ${cls}"><span class="change-symbol">${symbol}</span><strong>${Math.abs(pct).toFixed(2)}%</strong></div><p>上漲 ${row.up}｜下跌 ${row.down}｜平盤 ${row.flat}</p></article>`;
+}
+async function loadSectors(market){
+ const grid=document.getElementById(market==='TWSE'?'twseSectorGrid':'tpexSectorGrid');
+ const status=document.getElementById(market==='TWSE'?'twseSectorStatus':'tpexSectorStatus');
+ if(!grid||!status)return;
+ status.textContent='載入類股資料中…';
+ grid.innerHTML='<div class="sector-loading">計算中，請稍候</div>';
+ try{
+  const data=await fetchJsonSafe(`/api/sectors?market=${encodeURIComponent(market)}`);
+  const rows=Array.isArray(data.results)?data.results:[];
+  grid.innerHTML=rows.map(sectorCardHtml).join('')||'<div class="sector-loading">目前沒有資料</div>';
+  status.textContent=`共 ${rows.length} 個類股`;
+ }catch(e){
+  grid.innerHTML='';
+  status.textContent=e.message;
+ }
+}
+
+
 let stockSearchTimer=null;
 async function searchStocks(query){
  const q=String(query||'').trim();
@@ -421,9 +452,9 @@ function renderWatch(){
   const name=x?.name||u?.name||code;
   return `<article class="watch-card">
    <button class="remove-stock" title="移除自選股" onclick="removeWatch('${code}')">×</button>
-   <button class="watch-stock-open" type="button" onclick="openWatchStockAnalysis('${code}')">
+   <button class="watch-stock-open watch-analyze-btn" type="button" data-watch-analyze="${code}" onclick="openWatchStockAnalysis('${code}',this)">
     <h3>${name} ${code}</h3>
-    <p>${x?`${labelPeriod(x.period)}｜AI ${x.aiScore??x.score}｜收盤 ${x.close}`:'點擊立即進行完整 AI 分析'}</p>
+    <p>${x?`${labelPeriod(x.period)}｜AI ${x.aiScore??x.score}｜收盤 ${x.close}<div>${formatPriceChange(x)}</div>`:'點擊立即進行完整 AI 分析'}</p>
    </button>
    <div class="watch-actions">
     <button class="move-stock" onclick="chooseGroup('${code}')">移動分類</button>
@@ -908,14 +939,29 @@ window.addEventListener('resize',()=>{
  },120);
 });
 
-window.openWatchStockAnalysis=async function(code){
- const existing=results.find(v=>v.code===code)||allScannedResults.find(v=>v.code===code);
- if(existing){openStockDetailByCode(code);return;}
- const result=await analyzeSingleStock(code,singlePeriod);
- if(!result)return;
- if(!allScannedResults.some(x=>x.code===result.code))allScannedResults.push(result);
- if(!results.some(x=>x.code===result.code))results.push(result);
- openStockDetailByCode(result.code);
+window.openWatchStockAnalysis=async function(code,button=null){
+ const btn=button||document.querySelector(`[data-watch-analyze="${code}"]`);
+ const original=btn?.innerHTML;
+ if(btn){btn.classList.add('analyzing');btn.disabled=true;btn.innerHTML='<span class="mini-spinner"></span>分析中…';}
+ try{
+  const existing=results.find(v=>v.code===code)||allScannedResults.find(v=>v.code===code);
+  if(existing){
+   if(btn){btn.classList.remove('analyzing');btn.classList.add('done');btn.innerHTML='✓ 已完成';}
+   setTimeout(()=>openStockDetailByCode(code),180);return;
+  }
+  const result=await analyzeSingleStock(code,singlePeriod);
+  if(!result)throw new Error('分析失敗');
+  if(!allScannedResults.some(x=>x.code===result.code))allScannedResults.push(result);
+  if(!results.some(x=>x.code===result.code))results.push(result);
+  if(btn){btn.classList.remove('analyzing');btn.classList.add('done');btn.innerHTML='✓ 已完成';}
+  setTimeout(()=>openStockDetailByCode(result.code),180);
+ }catch(e){
+  if(btn){
+   btn.classList.remove('analyzing','done');btn.classList.add('failed');btn.disabled=false;btn.innerHTML='重新分析';
+   setTimeout(()=>{btn.classList.remove('failed');btn.innerHTML=original||'立即 AI 分析';},1800);
+  }
+  throw e;
+ }
 };
 bindStockAutocomplete('#singleCode','#singleSuggestions',row=>{
  const status=document.getElementById('singleStatus');
@@ -930,3 +976,16 @@ document.addEventListener('click',e=>{
   document.querySelectorAll('.stock-suggestions').forEach(x=>x.classList.remove('open'));
  }
 });
+
+document.querySelectorAll('[data-page]').forEach(btn=>{
+ btn.addEventListener('click',()=>{
+  const page=btn.dataset.page;
+  if(page==='twseSectors'||page==='tpexSectors'){
+   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+   document.getElementById(page==='twseSectors'?'twseSectorsPage':'tpexSectorsPage')?.classList.add('active');
+   document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x===btn));
+   loadSectors(page==='twseSectors'?'TWSE':'TPEx');
+  }
+ });
+});
+document.querySelectorAll('.sector-refresh').forEach(btn=>btn.addEventListener('click',()=>loadSectors(btn.dataset.market)));

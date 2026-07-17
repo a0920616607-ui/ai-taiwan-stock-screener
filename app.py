@@ -886,9 +886,50 @@ def api_search():
         return api_error("搜尋暫時無法完成，請稍後再試。", 503, detail=str(exc)[:160])
 
 
+
+@app.get("/api/sectors")
+def api_sectors():
+    market = str(request.args.get("market", "TWSE"))
+    try:
+        rows = all_universe()
+        if market in ("TWSE", "TPEx"):
+            rows = [x for x in rows if x.get("market") == market]
+        grouped = {}
+        for item in rows:
+            sector = item.get("industry") or item.get("sector") or item.get("category") or "其他"
+            grouped.setdefault(str(sector), []).append(item)
+        results = []
+        for sector, members in grouped.items():
+            changes = []
+            up = down = flat = 0
+            for item in members:
+                try:
+                    result = analyze(str(item.get("code", "")), "day")
+                    pct = float(result.get("changePct", result.get("priceChangePct", 0)) or 0)
+                    changes.append(pct)
+                    if pct > 0: up += 1
+                    elif pct < 0: down += 1
+                    else: flat += 1
+                except Exception:
+                    continue
+            if not changes:
+                continue
+            results.append({
+                "sector": sector,
+                "count": len(members),
+                "sampleCount": len(changes),
+                "changePct": round(sum(changes)/len(changes), 2),
+                "up": up, "down": down, "flat": flat,
+            })
+        results.sort(key=lambda x: x["changePct"], reverse=True)
+        return jsonify({"ok": True, "market": market, "results": results, "count": len(results)})
+    except Exception as exc:
+        return api_error("類股資料暫時無法取得，請稍後再試。", 503, detail=str(exc)[:180])
+
+
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V8.3.1", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V8.4", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
