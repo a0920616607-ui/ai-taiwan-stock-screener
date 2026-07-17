@@ -2114,3 +2114,246 @@ main{
   text-align:left;
  }
 }
+
+/* =========================================================
+   V9.3a 正式功能整合版
+   ========================================================= */
+.panel-titlebar{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:16px!important;
+  padding:20px!important;
+}
+.panel-titlebar>div{
+  min-width:0;
+  text-align:left!important;
+}
+.panel-titlebar small,
+.panel-titlebar h2,
+.panel-titlebar p{
+  text-align:left!important;
+  margin-left:0!important;
+}
+.panel-titlebar h2{
+  white-space:nowrap;
+}
+.panel-live-dot{
+  justify-self:end;
+  align-self:center;
+}
+
+.scan-mode-card{
+  margin:0 0 12px!important;
+  padding:16px!important;
+}
+.scan-mode-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
+}
+.scan-mode-title>span{
+  color:#fff;
+  font-size:17px;
+  font-weight:800;
+}
+.scan-mode-title small{
+  color:#91a6be;
+  letter-spacing:0;
+  text-align:right;
+}
+.direction-switch{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.direction-btn{
+  min-height:58px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  border:1px solid #2c526f;
+  background:#0a2033;
+  color:#c8d4df;
+}
+.direction-btn.bull.active{
+  border-color:#22c864!important;
+  background:linear-gradient(135deg,#11492a,#0b2f20)!important;
+  color:#45e887!important;
+}
+.direction-btn.bear.active{
+  border-color:#ff4b58!important;
+  background:linear-gradient(135deg,#4a1720,#2c1017)!important;
+  color:#ff6671!important;
+}
+.direction-symbol{
+  font-size:21px;
+}
+.match-mode-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:12px;
+}
+.match-mode-row>span{
+  color:#91a6be;
+  font-size:13px;
+}
+.match-mode-switch{
+  display:flex;
+  gap:7px;
+}
+.match-mode-btn{
+  padding:8px 12px;
+  background:#0a2033;
+  color:#9fb1c2;
+  border:1px solid #2b4e6b;
+}
+.match-mode-btn.active{
+  background:linear-gradient(135deg,#22c7ff,#6752ff)!important;
+  color:#fff!important;
+}
+
+.smart-scan-button{
+  width:100%;
+  min-height:74px;
+  margin:0 0 14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  border:1px solid #55d8ff;
+  border-radius:16px;
+  background:linear-gradient(135deg,#21c8ff 0%,#267fff 52%,#6c4dff 100%);
+  box-shadow:0 10px 24px rgba(43,118,255,.24);
+}
+.smart-scan-button:disabled{
+  opacity:.72;
+  cursor:not-allowed;
+}
+.smart-scan-button.running{
+  background:linear-gradient(135deg,#173b57,#263c71);
+}
+.smart-scan-icon{
+  font-size:28px;
+}
+.smart-scan-copy{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  text-align:left;
+}
+.smart-scan-copy b{
+  font-size:20px;
+  line-height:1.2;
+}
+.smart-scan-copy small{
+  margin-top:5px;
+  color:#e3f4ff;
+  letter-spacing:0;
+  font-size:11px;
+}
+
+.condition-group{
+  display:none;
+}
+.condition-group.active{
+  display:block;
+}
+.condition-group-head{
+  padding:10px 11px;
+  color:#35c9ff;
+  font-size:13px;
+  font-weight:900;
+  border-bottom:1px solid rgba(121,147,166,.25);
+}
+
+/* 掃描結果標題與表頭對齊 */
+.scan-title-row{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(120px,220px)!important;
+  align-items:end!important;
+  gap:12px!important;
+}
+.scan-title-row>div{
+  min-width:0;
+}
+.scan-title-row h3{
+  margin:0!important;
+  text-align:left!important;
+}
+.official-status{
+  text-align:left!important;
+}
+.pro-list-head{
+  align-items:center!important;
+}
+.pro-list-head span{
+  text-align:center!important;
+}
+.pro-list-head span:first-child{
+  text-align:left!important;
+}
+.pro-stock-row>div,
+.pro-stock-row>.pro-stock-name{
+  align-self:center!important;
+}
+
+@media(max-width:600px){
+  .panel-titlebar{
+    grid-template-columns:minmax(0,1fr) auto!important;
+    padding:16px!important;
+  }
+  .panel-titlebar h2{
+    font-size:23px!important;
+  }
+  .panel-titlebar p{
+    font-size:12px!important;
+    line-height:1.5!important;
+  }
+  .panel-live-dot{
+    font-size:11px!important;
+    padding:7px 9px!important;
+  }
+  .scan-mode-title{
+    align-items:flex-start;
+  }
+  .scan-mode-title small{
+    max-width:145px;
+    font-size:10px;
+  }
+  .direction-btn{
+    min-height:54px;
+    padding:10px 8px;
+    font-size:14px;
+  }
+  .match-mode-row{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .match-mode-switch{
+    width:100%;
+  }
+  .match-mode-btn{
+    flex:1;
+  }
+  .smart-scan-button{
+    min-height:68px;
+    padding:12px 14px;
+  }
+  .smart-scan-copy b{
+    font-size:18px;
+  }
+  .scan-title-row{
+    grid-template-columns:1fr!important;
+    align-items:stretch!important;
+  }
+  .scan-title-row input{
+    width:100%!important;
+    max-width:none!important;
+  }
+}

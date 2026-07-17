@@ -2,7 +2,7 @@
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V9 Ultimate</title>
-<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=93a">
+<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=93a2">
 </head><body>
 <header class="v9-header">
       <div class="brand-block">
@@ -26,10 +26,31 @@
   <div><small>AI STOCK SCREENER</small><h2>智慧選股掃描</h2><p>同步上市與上櫃資料，依技術面、法人及主力條件評分。</p></div>
   <span class="panel-live-dot">即時分析</span>
 </div>
-<div class="main-actions">
-<button id="syncBtn" class="v9-action secondary-action"><span class="action-mark">↻</span>同步股票名單</button>
-<button id="scanBtn" class="v9-action primary-action"><span class="action-mark">▶</span>開始 AI 掃描</button>
+<div class="scan-mode-card card">
+  <div class="scan-mode-title">
+    <span>搜尋方向</span>
+    <small>多方與空方條件分開篩選</small>
+  </div>
+  <div class="direction-switch" role="group" aria-label="搜尋方向">
+    <button type="button" class="direction-btn bull active" data-direction="bull">
+      <span class="direction-symbol">▲</span><b>多方搜尋</b>
+    </button>
+    <button type="button" class="direction-btn bear" data-direction="bear">
+      <span class="direction-symbol">▼</span><b>空方搜尋</b>
+    </button>
+  </div>
+  <div class="match-mode-row">
+    <span>條件符合方式</span>
+    <div class="match-mode-switch">
+      <button type="button" class="match-mode-btn active" data-match-mode="any">任一符合</button>
+      <button type="button" class="match-mode-btn" data-match-mode="all">全部符合</button>
+    </div>
+  </div>
 </div>
+<button id="smartScanBtn" class="smart-scan-button" type="button">
+  <span class="smart-scan-icon">▶</span>
+  <span class="smart-scan-copy"><b>智慧選股掃描</b><small>同步股票名單＋AI分析＋排行榜更新</small></span>
+</button>
 <div class="periods card"><b>分析週期</b>
 <button class="period active" data-period="day">日線</button>
 <button class="period" data-period="week">週線</button>
@@ -52,21 +73,38 @@
     </button>
     <div class="multi-select-menu" id="techMultiMenu">
       <div class="multi-select-tools">
-        <button type="button" id="techSelectAll">全選</button>
+        <button type="button" id="techSelectAll">全選目前方向</button>
         <button type="button" id="techClearAll">全部取消</button>
         <span id="techSelectedCount">已選 0 個條件</span>
       </div>
-      <label class="tech-check"><input type="checkbox" value="macd_gold"><span>MACD 黃金交叉／翻正</span></label>
-      <label class="tech-check"><input type="checkbox" value="kd_gold"><span>KD 黃金交叉</span></label>
-      <label class="tech-check"><input type="checkbox" value="rsi_up"><span>RSI 向上</span></label>
-      <label class="tech-check"><input type="checkbox" value="volume"><span>量能放大</span></label>
-      <label class="tech-check"><input type="checkbox" value="ma_bull"><span>站上均線</span></label>
-      <label class="tech-check"><input type="checkbox" value="above_ema100"><span>股價站上 EMA100</span></label>
-      <label class="tech-check"><input type="checkbox" value="ema100_rising"><span>EMA100 上彎</span></label>
-      <label class="tech-check"><input type="checkbox" value="ema100_macd"><span>EMA100＋MACD 黃金交叉</span></label>
-      <label class="tech-check"><input type="checkbox" value="buy"><span>買入燈號</span></label>
-      <label class="tech-check"><input type="checkbox" value="sell"><span>賣出燈號</span></label>
-      <p class="multi-select-note">勾選多個條件時，股票必須同時符合全部條件。</p>
+
+      <div class="condition-group active" data-direction-group="bull">
+        <div class="condition-group-head">多方條件</div>
+        <label class="tech-check"><input type="checkbox" value="macd_gold"><span>MACD 黃金交叉／翻正</span></label>
+        <label class="tech-check"><input type="checkbox" value="kd_gold"><span>KD 黃金交叉</span></label>
+        <label class="tech-check"><input type="checkbox" value="rsi_up"><span>RSI 向上</span></label>
+        <label class="tech-check"><input type="checkbox" value="volume_up"><span>量能放大且上漲</span></label>
+        <label class="tech-check"><input type="checkbox" value="ma_bull"><span>站上均線</span></label>
+        <label class="tech-check"><input type="checkbox" value="above_ema100"><span>股價站上 EMA100</span></label>
+        <label class="tech-check"><input type="checkbox" value="ema100_rising"><span>EMA100 上彎</span></label>
+        <label class="tech-check"><input type="checkbox" value="ema100_macd"><span>EMA100＋MACD 黃金交叉</span></label>
+        <label class="tech-check"><input type="checkbox" value="buy"><span>買入燈號</span></label>
+      </div>
+
+      <div class="condition-group" data-direction-group="bear">
+        <div class="condition-group-head">空方條件</div>
+        <label class="tech-check"><input type="checkbox" value="macd_bear"><span>MACD 死亡交叉／翻負</span></label>
+        <label class="tech-check"><input type="checkbox" value="kd_bear"><span>KD 死亡交叉</span></label>
+        <label class="tech-check"><input type="checkbox" value="rsi_down"><span>RSI 向下／低於 50</span></label>
+        <label class="tech-check"><input type="checkbox" value="volume_down"><span>放量下跌</span></label>
+        <label class="tech-check"><input type="checkbox" value="ma_bear"><span>跌破均線</span></label>
+        <label class="tech-check"><input type="checkbox" value="below_ema100"><span>股價跌破 EMA100</span></label>
+        <label class="tech-check"><input type="checkbox" value="ema100_falling"><span>EMA100 下彎</span></label>
+        <label class="tech-check"><input type="checkbox" value="ema100_macd_bear"><span>EMA100＋MACD 空方</span></label>
+        <label class="tech-check"><input type="checkbox" value="sell"><span>賣出燈號</span></label>
+      </div>
+
+      <p class="multi-select-note" id="conditionModeNote">任一符合：只要符合其中一項即可列出。</p>
     </div>
   </div>
 </div>
@@ -101,7 +139,7 @@
   </div>
   <div id="resultRows" class="pro-result-list"></div>
 
-  <p id="empty">請先同步股票名單，再開始掃描。</p>
+  <p id="empty">請按「智慧選股掃描」開始同步與分析。</p>
   <div class="pager">
     <button id="prev">上一頁</button>
     <span id="pageLabel">第 1 頁</span>
@@ -393,5 +431,5 @@
   </section>
 </div>
 
-<script src="/app.js?v=93a"></script>
+<script src="/app.js?v=93a2"></script>
 </body></html>

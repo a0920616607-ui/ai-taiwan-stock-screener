@@ -337,13 +337,18 @@ async function syncUniverse(){
     renderWatch();
     return universe;
   }catch(err){
+    if(universe.length){
+      $('#progressText').textContent=`同步暫時失敗，沿用已保存 ${universe.length} 檔資料`;
+      return universe;
+    }
     $('#progressText').textContent='同步失敗';
     throw err;
   }
 }
 async function scanPage(){
  if(!universe.length) await syncUniverse();
- $('#scanBtn').disabled=true;
+ const scanButton=$('#smartScanBtn')||$('#scanBtn');
+ if(scanButton) scanButton.disabled=true;
  $('#progressText').textContent='AI 掃描中…';
  $('#progress').value=15;
  $('#empty').textContent='正在取得歷史行情、法人與主力代理指標…';
@@ -395,7 +400,7 @@ async function scanPage(){
   $('#progressText').textContent='掃描失敗';
   alert(`掃描失敗：${e.message}`);
  }finally{
-  $('#scanBtn').disabled=false;
+  if(scanButton) scanButton.disabled=false;
  }
 }
 function inWatch(code){return Object.values(groups).some(a=>a.includes(code))}
@@ -466,8 +471,79 @@ function hasReason(x, keyword){
 }
 
 
+
+let scanDirection='bull';
+let techMatchMode='any';
+
+function activeConditionGroup(){
+ return document.querySelector(`#techMultiMenu [data-direction-group="${scanDirection}"]`);
+}
+
+function getVisibleTechInputs(){
+ return [...(activeConditionGroup()?.querySelectorAll('input[type="checkbox"]')||[])];
+}
+
+function updateDirectionUI(){
+ document.querySelectorAll('.direction-btn').forEach(btn=>{
+  btn.classList.toggle('active',btn.dataset.direction===scanDirection);
+ });
+ document.querySelectorAll('[data-direction-group]').forEach(group=>{
+  group.classList.toggle('active',group.dataset.directionGroup===scanDirection);
+ });
+ const triggerText=document.getElementById('techMultiText');
+ if(triggerText && getSelectedTechFilters().length===0){
+  triggerText.textContent=scanDirection==='bull'?'多方全部條件':'空方全部條件';
+ }
+ updateTechMultiLabel();
+ renderResults();
+}
+
+function updateMatchModeUI(){
+ document.querySelectorAll('.match-mode-btn').forEach(btn=>{
+  btn.classList.toggle('active',btn.dataset.matchMode===techMatchMode);
+ });
+ const note=document.getElementById('conditionModeNote');
+ if(note){
+  note.textContent=techMatchMode==='all'
+   ?'全部符合：必須同時符合所有已勾選條件。'
+   :'任一符合：只要符合其中一項即可列出。';
+ }
+ renderResults();
+}
+
+function setSmartScanState(running,label='智慧選股掃描',detail='同步股票名單＋AI分析＋排行榜更新'){
+ const btn=document.getElementById('smartScanBtn');
+ if(!btn)return;
+ btn.disabled=running;
+ btn.classList.toggle('running',running);
+ const main=btn.querySelector('b');
+ const small=btn.querySelector('small');
+ const icon=btn.querySelector('.smart-scan-icon');
+ if(main)main.textContent=label;
+ if(small)small.textContent=detail;
+ if(icon)icon.textContent=running?'●':'▶';
+}
+
+async function smartScan(){
+ const started=performance.now();
+ setSmartScanState(true,'同步股票資料中…','上市與上櫃名單同步');
+ try{
+  page=0;
+  await syncUniverse();
+  setSmartScanState(true,'AI 掃描分析中…',`${scanDirection==='bull'?'多方':'空方'}模式｜第 1 頁`);
+  await scanPage();
+  renderRanking();
+  saveDailyRankingSnapshot();
+  const seconds=((performance.now()-started)/1000).toFixed(1);
+  setSmartScanState(false,'智慧選股掃描',`完成｜耗時 ${seconds} 秒｜已更新排行榜`);
+ }catch(err){
+  setSmartScanState(false,'智慧選股掃描','掃描失敗，請再試一次');
+  alert(`智慧選股掃描失敗：${err.message}`);
+ }
+}
+
 function getSelectedTechFilters(){
- return [...document.querySelectorAll('#techMultiMenu input[type="checkbox"]:checked')].map(x=>x.value);
+ return getVisibleTechInputs().filter(x=>x.checked).map(x=>x.value);
 }
 
 function updateTechMultiLabel(){
@@ -475,7 +551,7 @@ function updateTechMultiLabel(){
  const text=document.getElementById('techMultiText');
  const count=document.getElementById('techSelectedCount');
  if(text){
-  if(selected.length===0)text.textContent='全部條件';
+  if(selected.length===0)text.textContent=scanDirection==='bull'?'多方全部條件':'空方全部條件';
   else if(selected.length===1){
    const input=document.querySelector(`#techMultiMenu input[value="${selected[0]}"]`);
    text.textContent=input?.closest('label')?.querySelector('span')?.textContent||'已選 1 個條件';
@@ -512,7 +588,7 @@ function initTechMultiSelect(){
  });
 
  document.getElementById('techSelectAll')?.addEventListener('click',()=>{
-  menu.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=true);
+  getVisibleTechInputs().forEach(x=>x.checked=true);
   updateTechMultiLabel();
   renderResults();
  });
@@ -538,19 +614,44 @@ function filteredResults(){
   if(market!=='all' && x.market!==market) return false;
 
   const signal=getSignal(x);
+  const close=Number(x.close||0);
+  const ema100=Number(x.EMA100||0);
+  const macd=Number(x.MACD||0);
+  const macdSignal=Number(x.MACDSignal||0);
+  const k=Number(x.K||0);
+  const d=Number(x.D||0);
+  const rsi=Number(x.RSI||0);
+  const change=Number(x.change||0);
   const checks={
-   macd_gold:()=>Number(x.MACD)>0 || hasReason(x,'MACD 柱翻正') || hasReason(x,'MACD 黃金交叉'),
-   kd_gold:()=>hasReason(x,'KD 黃金交叉'),
-   rsi_up:()=>hasReason(x,'RSI 向上'),
-   volume:()=>Number(x.volumeRatio)>=1.2,
-   ma_bull:()=>hasReason(x,'站上均線') || hasReason(x,'站上短期均線') || hasReason(x,'站上中期均線'),
-   above_ema100:()=>Boolean(x.aboveEMA100),
+   macd_gold:()=>Boolean(x.MACDGoldenCross)||macd>macdSignal||hasReason(x,'MACD 柱翻正')||hasReason(x,'MACD 黃金交叉'),
+   kd_gold:()=>k>d||hasReason(x,'KD 黃金交叉'),
+   rsi_up:()=>rsi>=50||hasReason(x,'RSI 向上'),
+   volume_up:()=>Number(x.volumeRatio)>=1.2&&change>=0,
+   ma_bull:()=>Boolean(x.aboveEMA100)||hasReason(x,'站上均線')||hasReason(x,'站上短期均線')||hasReason(x,'站上中期均線'),
+   above_ema100:()=>Boolean(x.aboveEMA100)||(ema100>0&&close>ema100),
    ema100_rising:()=>Boolean(x.EMA100Rising),
    ema100_macd:()=>Boolean(x.EMA100MACDStrategy),
    buy:()=>signal.type==='buy',
+
+   macd_bear:()=>macd<macdSignal||macd<0||hasReason(x,'MACD 柱體為負')||hasReason(x,'MACD 動能轉弱'),
+   kd_bear:()=>k<d,
+   rsi_down:()=>rsi>0&&rsi<50,
+   volume_down:()=>Number(x.volumeRatio)>=1.2&&change<0,
+   ma_bear:()=>Boolean(ema100>0&&close<ema100)||!Boolean(x.aboveEMA100),
+   below_ema100:()=>Boolean(ema100>0&&close<ema100)||!Boolean(x.aboveEMA100),
+   ema100_falling:()=>x.EMA100Rising===false,
+   ema100_macd_bear:()=>Boolean(ema100>0&&close<ema100&&macd<macdSignal),
    sell:()=>signal.type==='sell'
   };
-  if(techs.some(key=>checks[key] && !checks[key]())) return false;
+
+  if(techs.length){
+   const matched=techs.map(key=>Boolean(checks[key]?.()));
+   if(techMatchMode==='all' && !matched.every(Boolean)) return false;
+   if(techMatchMode==='any' && !matched.some(Boolean)) return false;
+  }else{
+   if(scanDirection==='bull' && signal.type==='sell') return false;
+   if(scanDirection==='bear' && signal.type==='buy') return false;
+  }
   return true;
  });
 
@@ -796,8 +897,15 @@ $('#manualAnalyzeAdd').onclick=async()=>{
  }
 };
 
-$('#syncBtn').onclick=()=>syncUniverse().catch(e=>alert(e.message));
-$('#scanBtn').onclick=()=>scanPage().catch(e=>alert(e.message));
+document.getElementById('smartScanBtn')?.addEventListener('click',smartScan);
+document.querySelectorAll('.direction-btn').forEach(btn=>btn.addEventListener('click',()=>{
+ scanDirection=btn.dataset.direction||'bull';
+ updateDirectionUI();
+}));
+document.querySelectorAll('.match-mode-btn').forEach(btn=>btn.addEventListener('click',()=>{
+ techMatchMode=btn.dataset.matchMode||'any';
+ updateMatchModeUI();
+}));
 $('#prev').onclick=()=>{if(page>0){page--;scanPage().catch(e=>alert(e.message))}};
 $('#next').onclick=()=>{
  const market=document.getElementById('marketFilter')?.value||'all';
@@ -1291,3 +1399,6 @@ function warnIfTpexMissing(){
 document.getElementById('marketFilter')?.addEventListener('change',warnIfTpexMissing);
 
 document.addEventListener('DOMContentLoaded',initTechMultiSelect);
+
+updateDirectionUI();
+updateMatchModeUI();
