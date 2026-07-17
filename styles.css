@@ -1619,3 +1619,287 @@ main{
  .v9-nav .tab{font-size:13px!important}
  .sector-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
+
+/* =========================================================
+   V9 ULTIMATE — mobile-first professional front end
+   This block intentionally overrides all legacy navigation rules.
+   ========================================================= */
+:root{
+  --u-bg:#03111d;
+  --u-panel:#071a2b;
+  --u-panel-soft:#0a2034;
+  --u-line:#284c69;
+  --u-cyan:#25caff;
+  --u-blue:#258dff;
+  --u-purple:#7048ff;
+  --u-text:#f4f8fc;
+  --u-muted:#96a9ba;
+}
+body{
+  background:
+    radial-gradient(circle at 20% -8%,rgba(22,117,177,.20),transparent 34%),
+    linear-gradient(180deg,#041521 0%,#020b13 100%) !important;
+}
+.v9-header{
+  max-width:1180px !important;
+  padding:24px 30px 18px !important;
+}
+.brand-block h1 b{
+  display:inline-block;
+  font-size:13px !important;
+  letter-spacing:.04em;
+}
+.health-badge{
+  font-weight:700;
+}
+main{
+  max-width:1180px !important;
+}
+
+/* Navigation: exact 3 x 2 grid, icons never disappear. */
+.ultimate-nav{
+  display:grid !important;
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  grid-auto-rows:72px !important;
+  gap:12px 16px !important;
+  margin:10px 0 18px !important;
+}
+.ultimate-nav .tab{
+  width:100% !important;
+  height:72px !important;
+  min-height:72px !important;
+  margin:0 !important;
+  padding:0 14px !important;
+  display:flex !important;
+  flex-direction:row !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:11px !important;
+  border:1px solid var(--u-line) !important;
+  border-radius:15px !important;
+  background:linear-gradient(180deg,#081e31,#061724) !important;
+  color:#e8eff6 !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035) !important;
+  font-size:17px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+}
+.ultimate-nav .tab.active{
+  background:linear-gradient(135deg,var(--u-cyan) 0%,var(--u-blue) 52%,var(--u-purple) 100%) !important;
+  color:#fff !important;
+  border-color:#59d8ff !important;
+  box-shadow:0 8px 22px rgba(40,124,255,.28),inset 0 1px 0 rgba(255,255,255,.22) !important;
+}
+.ultimate-nav .nav-icon{
+  display:inline-flex !important;
+  flex:0 0 31px !important;
+  width:31px !important;
+  height:31px !important;
+  align-items:center !important;
+  justify-content:center !important;
+  color:currentColor !important;
+}
+.ultimate-nav .nav-icon svg{
+  display:block !important;
+  width:29px !important;
+  height:29px !important;
+  fill:none !important;
+  stroke:currentColor !important;
+  stroke-width:1.8 !important;
+  stroke-linecap:round !important;
+  stroke-linejoin:round !important;
+}
+.ultimate-nav .nav-label{
+  display:block !important;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* Scan panel is visibly redesigned, not just recolored. */
+.panel-titlebar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin:0 0 14px;
+  padding:18px 20px;
+  border:1px solid #244862;
+  border-radius:18px;
+  background:linear-gradient(135deg,rgba(10,38,61,.98),rgba(6,24,39,.98));
+}
+.panel-titlebar small{
+  color:var(--u-cyan);
+  font-size:11px;
+  letter-spacing:.2em;
+}
+.panel-titlebar h2{
+  margin:7px 0 5px;
+  font-size:25px;
+  line-height:1.1;
+}
+.panel-titlebar p{
+  margin:0;
+  color:var(--u-muted);
+  font-size:13px;
+  line-height:1.55;
+}
+.panel-live-dot{
+  flex:0 0 auto;
+  padding:8px 11px;
+  border:1px solid rgba(49,223,142,.45);
+  border-radius:999px;
+  color:#43df91;
+  background:rgba(25,121,80,.12);
+  font-size:12px;
+  font-weight:800;
+}
+.main-actions{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:12px !important;
+  margin-bottom:14px;
+}
+.v9-action{
+  height:62px !important;
+  border-radius:14px !important;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  font-size:17px !important;
+}
+.secondary-action{
+  background:linear-gradient(180deg,#0d2b43,#092036) !important;
+  border:1px solid #2c5776 !important;
+}
+.primary-action{
+  background:linear-gradient(135deg,#24c9ff,#6551ff) !important;
+  border:1px solid #4bd9ff !important;
+}
+.action-mark{font-size:20px}
+.periods,.filter-panel{
+  border-radius:18px !important;
+}
+.periods{
+  display:grid !important;
+  grid-template-columns:auto repeat(3,minmax(0,1fr)) !important;
+  gap:10px !important;
+}
+.periods b{
+  display:flex;
+  align-items:center;
+  padding-right:6px;
+}
+.period{
+  min-height:54px;
+}
+.filter-panel{
+  display:grid !important;
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:16px !important;
+}
+.filter-panel label{
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+  color:var(--u-muted);
+}
+.filter-panel select{
+  min-height:56px;
+  border-radius:13px;
+}
+
+/* Professional compact mobile presentation matching the requested reference. */
+@media(max-width:760px){
+  .v9-header{
+    padding:20px 16px 16px !important;
+  }
+  .brand-block h1{
+    font-size:23px !important;
+  }
+  .health-badge{
+    font-size:13px !important;
+  }
+  main{
+    padding:0 16px 42px !important;
+  }
+  .ultimate-nav{
+    grid-auto-rows:64px !important;
+    gap:9px !important;
+    margin-top:8px !important;
+  }
+  .ultimate-nav .tab{
+    height:64px !important;
+    min-height:64px !important;
+    padding:0 7px !important;
+    gap:6px !important;
+    border-radius:13px !important;
+    font-size:13px !important;
+  }
+  .ultimate-nav .nav-icon{
+    display:inline-flex !important;
+    flex-basis:24px !important;
+    width:24px !important;
+    height:24px !important;
+  }
+  .ultimate-nav .nav-icon svg{
+    display:block !important;
+    width:23px !important;
+    height:23px !important;
+  }
+  .panel-titlebar{
+    padding:15px;
+  }
+  .panel-titlebar h2{
+    font-size:21px;
+  }
+  .panel-titlebar p{
+    font-size:11px;
+  }
+  .panel-live-dot{
+    padding:7px 9px;
+    font-size:10px;
+  }
+  .v9-action{
+    height:58px !important;
+    font-size:15px !important;
+  }
+  .periods{
+    grid-template-columns:1fr repeat(3,minmax(0,1fr)) !important;
+    padding:14px !important;
+  }
+  .periods b{
+    font-size:15px;
+  }
+  .period{
+    min-height:50px;
+    padding:8px 5px !important;
+  }
+  .filter-panel{
+    grid-template-columns:1fr !important;
+    padding:16px !important;
+    gap:14px !important;
+  }
+}
+@media(max-width:380px){
+  /* Unlike V9 Professional, icons remain visible here. */
+  .ultimate-nav .nav-icon{
+    display:inline-flex !important;
+  }
+  .ultimate-nav .tab{
+    font-size:12px !important;
+    gap:4px !important;
+  }
+  .ultimate-nav .nav-icon{
+    flex-basis:21px !important;
+    width:21px !important;
+    height:21px !important;
+  }
+  .ultimate-nav .nav-icon svg{
+    width:20px !important;
+    height:20px !important;
+  }
+}
