@@ -1291,28 +1291,3 @@ function warnIfTpexMissing(){
 document.getElementById('marketFilter')?.addEventListener('change',warnIfTpexMissing);
 
 document.addEventListener('DOMContentLoaded',initTechMultiSelect);
-
-
-// V9.3a helper
-async function smartScan(){
- const sync=document.getElementById('syncBtn');
- const scan=document.getElementById('scanBtn');
- const btn=document.getElementById('syncBtn');
- if(btn){btn.disabled=true;btn.textContent='智慧選股掃描中...';}
- try{
-   if(sync) await sync.click();
-   await new Promise(r=>setTimeout(r,300));
-   if(scan) await scan.click();
- }finally{
-   if(btn){btn.disabled=false;btn.textContent='智慧選股掃描';}
- }
-}
-document.addEventListener('DOMContentLoaded',()=>{
- const sync=document.getElementById('syncBtn');
- const scan=document.getElementById('scanBtn');
- if(sync){
-   sync.textContent='🚀 智慧選股掃描';
-   sync.onclick=(e)=>{e.preventDefault();smartScan();};
- }
- if(scan){scan.style.display='none';}
-});

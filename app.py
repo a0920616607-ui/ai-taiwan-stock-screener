@@ -1152,7 +1152,7 @@ def api_sector_members():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V9.2 Ultimate", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V9.3a", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
