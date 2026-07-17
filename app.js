@@ -25,7 +25,11 @@ async function loadSectors(market){
   const data=await fetchJsonSafe(`/api/sectors?market=${encodeURIComponent(market)}`);
   const rows=Array.isArray(data.results)?data.results:[];
   grid.innerHTML=rows.map(sectorCardHtml).join('')||'<div class="sector-loading">目前沒有資料</div>';
-  status.textContent=`共 ${rows.length} 個類股`;
+  if(Number(data.stockCount||0)===0){
+   status.textContent='上櫃資料來源暫時未取得，請稍後按重新整理';
+  }else{
+   status.textContent=`共 ${rows.length} 個類股｜${data.stockCount} 檔股票`;
+  }
  }catch(e){
   grid.innerHTML='';
   status.textContent=e.message;

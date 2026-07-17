@@ -16,6 +16,8 @@ TPEX_DAILY_FALLBACKS = [
 TPEX_INST = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"
 UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/6.2)"}
 
+import time
+
 def num(v):
     try:
         return float(str(v).replace(",", "").replace("--", "").strip())
@@ -74,31 +76,63 @@ def classify_sector(name):
     return "其他"
 
 
-def twse_universe():
-    r = requests.get(TWSE_DAILY, headers=UA, timeout=30)
-    r.raise_for_status()
-    rows = r.json()
-    out = []
-    for x in rows:
-        code = str(pick(x, ["Code", "證券代號"]) or "").strip()
-        if not re.fullmatch(r"\d{4}", code):
-            continue
-        close = num(pick(x, ["ClosingPrice", "收盤價"]))
-        if close is None:
-            continue
-        name = str(pick(x, ["Name", "證券名稱"]) or code).strip()
-        change = num(pick(x, ["Change", "漲跌價差", "ChangeAmount"])) or 0
-        out.append({
-            "code": code,
-            "name": name,
-            "close": close,
-            "change": change,
-            "changePct": _calc_change_pct(close, change),
-            "industry": str(pick(x, ["Industry", "產業別", "IndustryName"]) or classify_sector(name)),
-            "market": "TWSE"
-        })
-    return out
 
+# V8.4.3：外部股票名單來源失敗時，沿用最近一次成功資料。
+_UNIVERSE_CACHE = {
+    "TWSE": {"rows": [], "updated_at": 0},
+    "TPEx": {"rows": [], "updated_at": 0},
+}
+_UNIVERSE_CACHE_SECONDS = 300
+
+def _cache_get(market):
+    item = _UNIVERSE_CACHE.get(market) or {}
+    rows = item.get("rows") or []
+    updated_at = float(item.get("updated_at") or 0)
+    if rows and (time.time() - updated_at) <= _UNIVERSE_CACHE_SECONDS:
+        return rows
+    return []
+
+def _cache_last(market):
+    return (_UNIVERSE_CACHE.get(market) or {}).get("rows") or []
+
+def _cache_set(market, rows):
+    if rows:
+        _UNIVERSE_CACHE[market] = {"rows": rows, "updated_at": time.time()}
+    return rows
+
+
+def twse_universe():
+    cached = _cache_get("TWSE")
+    if cached:
+        return cached
+    try:
+        r = requests.get(TWSE_DAILY, headers=UA, timeout=24)
+        r.raise_for_status()
+        rows = r.json()
+        out = []
+        for x in rows:
+            code = str(pick(x, ["Code", "證券代號"]) or "").strip()
+            if not re.fullmatch(r"\d{4}", code):
+                continue
+            close = num(pick(x, ["ClosingPrice", "收盤價"]))
+            if close is None:
+                continue
+            name = str(pick(x, ["Name", "證券名稱"]) or code).strip()
+            change = num(pick(x, ["Change", "漲跌價差", "ChangeAmount"])) or 0
+            out.append({
+                "code": code,
+                "name": name,
+                "close": close,
+                "change": change,
+                "changePct": _calc_change_pct(close, change),
+                "industry": str(pick(x, ["Industry", "產業別", "IndustryName"]) or classify_sector(name)),
+                "market": "TWSE"
+            })
+        if out:
+            return _cache_set("TWSE", out)
+    except Exception:
+        pass
+    return _cache_last("TWSE")
 
 
 def _extract_tpex_rows(payload):
@@ -180,11 +214,12 @@ def _parse_tpex_row(x):
     }
 
 def tpex_universe():
-    """上櫃股票清單：OpenAPI 優先，舊版 JSON 端點作為後備。"""
-    attempts = [
-        (TPEX_DAILY, None),
-    ]
+    """上櫃股票清單：快取＋多來源候補；暫時失敗時不回傳 0。"""
+    cached = _cache_get("TPEx")
+    if cached:
+        return cached
 
+    attempts = [(TPEX_DAILY, None)]
     today = _today_taipei()
     roc_date = _to_roc_date(today)
 
@@ -202,29 +237,49 @@ def tpex_universe():
                 "se": "EW",
             }))
 
+    partial = []
     for url, params in attempts:
         try:
-            r = requests.get(url, params=params, headers=UA, timeout=30)
+            r = requests.get(url, params=params, headers=UA, timeout=24)
             r.raise_for_status()
             payload = r.json()
             rows = _extract_tpex_rows(payload)
             out = []
+            seen = set()
             for row in rows:
                 item = _parse_tpex_row(row)
-                if item:
-                    out.append(item)
-            if out:
-                return out
+                if not item:
+                    continue
+                code = str(item.get("code", ""))
+                if code in seen:
+                    continue
+                seen.add(code)
+                out.append(item)
+
+            if len(out) > len(partial):
+                partial = out
+
+            if len(out) >= 500:
+                return _cache_set("TPEx", out)
         except Exception:
             continue
 
+    previous = _cache_last("TPEx")
+    if previous:
+        return previous
+    if partial:
+        return _cache_set("TPEx", partial)
     return []
 
+
 def all_universe():
+    twse = twse_universe() or _cache_last("TWSE")
+    tpex = tpex_universe() or _cache_last("TPEx")
     merged = {}
-    for item in twse_universe() + tpex_universe():
-        merged[item["code"]] = item
-    return sorted(merged.values(), key=lambda x: x["code"])
+    for item in list(twse) + list(tpex):
+        key = f"{item.get('market', '')}:{item.get('code', '')}"
+        merged[key] = item
+    return sorted(merged.values(), key=lambda x: (x.get("market", ""), x.get("code", "")))
 
 
 _INST_CACHE = {"key": None, "data": {}, "meta": {}}
@@ -987,6 +1042,8 @@ def api_sectors():
             "market": market,
             "results": results,
             "count": len(results),
+            "stockCount": len(rows),
+            "sourceStatus": "ok" if rows else "temporarily_unavailable",
         })
     except Exception as exc:
         return api_error("類股資料暫時無法取得，請稍後再試。", 503, detail=str(exc)[:180])
@@ -994,7 +1051,7 @@ def api_sectors():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V8.4.2", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V8.4.3", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():

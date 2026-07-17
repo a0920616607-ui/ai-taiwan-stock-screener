@@ -903,3 +903,54 @@ body.modal-open{overflow:hidden}
 .sector-panel-card{
   min-height:420px;
 }
+
+/* V8.4.3 收盤價向左對齊 */
+.pro-head,
+.pro-row{
+  grid-template-columns:
+    minmax(118px,1.34fr)
+    minmax(74px,.78fr)
+    minmax(82px,.86fr)
+    minmax(62px,.66fr)
+    minmax(122px,1.16fr) !important;
+}
+.pro-head > :nth-child(2){
+  text-align:left !important;
+  padding-left:0 !important;
+}
+.pro-close{
+  align-items:flex-start !important;
+  justify-content:center !important;
+  text-align:left !important;
+  padding-left:0 !important;
+  transform:translateX(-10px);
+}
+.pro-close b{
+  width:100%;
+  text-align:left !important;
+}
+.pro-close .price-change{
+  align-items:flex-start !important;
+  width:auto !important;
+}
+.pro-close .change-line{
+  justify-content:flex-start !important;
+}
+.pro-close .change-percent{
+  padding-left:15px;
+  text-align:left !important;
+}
+@media(max-width:430px){
+  .pro-head,
+  .pro-row{
+    grid-template-columns:
+      minmax(108px,1.30fr)
+      minmax(70px,.74fr)
+      minmax(76px,.80fr)
+      minmax(56px,.60fr)
+      minmax(112px,1.10fr) !important;
+  }
+  .pro-close{
+    transform:translateX(-12px);
+  }
+}
