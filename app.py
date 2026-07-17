@@ -2,14 +2,15 @@
 from flask import Flask, jsonify, request, send_from_directory
 from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import requests, os, re
+import requests, os, re, json
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
 TWSE_DAILY = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
 TWSE_INST = "https://www.twse.com.tw/rwd/zh/fund/T86"
-TPEX_DAILY = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"
+TPEX_DAILY = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes"
 TPEX_DAILY_FALLBACKS = [
+    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
     "https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes",
     "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php",
 ]
@@ -98,7 +99,40 @@ def _cache_last(market):
 def _cache_set(market, rows):
     if rows:
         _UNIVERSE_CACHE[market] = {"rows": rows, "updated_at": time.time()}
+        _save_disk_universe(market, rows)
     return rows
+
+_UNIVERSE_DISK_CACHE = "/tmp/taiwan_stock_universe_cache.json"
+
+def _load_disk_universe():
+    try:
+        with open(_UNIVERSE_DISK_CACHE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+def _save_disk_universe(market, rows):
+    if not rows:
+        return
+    try:
+        data = _load_disk_universe()
+        data[market] = {
+            "rows": rows,
+            "updated_at": time.time(),
+        }
+        with open(_UNIVERSE_DISK_CACHE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+def _disk_last(market):
+    try:
+        return ((_load_disk_universe().get(market) or {}).get("rows") or [])
+    except Exception:
+        return []
+
+
 
 
 def twse_universe():
@@ -176,22 +210,22 @@ def _parse_tpex_row(x):
         change = num(x[3]) if len(x) > 3 else 0
     elif isinstance(x, dict):
         code = str(pick(x, [
-            "SecuritiesCompanyCode", "證券代號", "Code", "股票代號",
-            "SecuritiesCode", "代號"
+            "SecuritiesCompanyCode", "SecuritiesCode", "證券代號", "Code",
+            "股票代號", "代號", "StockCode", "SecurityCode"
         ]) or "").strip()
 
         name = str(pick(x, [
-            "CompanyName", "證券名稱", "Name", "股票名稱",
-            "SecuritiesCompanyName", "名稱"
+            "CompanyName", "SecuritiesCompanyName", "證券名稱", "Name",
+            "股票名稱", "名稱", "StockName", "SecurityName"
         ]) or code).strip()
 
         close = num(pick(x, [
             "Close", "收盤價", "ClosingPrice", "ClosePrice",
-            "ClosePriceToday", "最後成交價"
+            "ClosePriceToday", "最後成交價", "LatestPrice", "TradePrice"
         ]))
         change = num(pick(x, [
             "Change", "漲跌", "漲跌價差", "ChangeAmount",
-            "ChangeValue", "PriceChange"
+            "ChangeValue", "PriceChange", "ChangePrice", "UpDown"
         ])) or 0
     else:
         return None
@@ -214,67 +248,90 @@ def _parse_tpex_row(x):
     }
 
 def tpex_universe():
-    """上櫃股票清單：快取＋多來源候補；暫時失敗時不回傳 0。"""
+    """上櫃股票清單：多來源、重試、記憶體／磁碟快取。"""
     cached = _cache_get("TPEx")
     if cached:
         return cached
 
-    attempts = [(TPEX_DAILY, None)]
     today = _today_taipei()
     roc_date = _to_roc_date(today)
 
-    for url in TPEX_DAILY_FALLBACKS:
-        if "dailyQuotes" in url:
-            attempts.append((url, {
-                "date": today.strftime("%Y/%m/%d"),
-                "id": "",
-                "response": "json",
-            }))
-        else:
-            attempts.append((url, {
-                "d": roc_date,
-                "l": "zh-tw",
-                "se": "EW",
-            }))
+    attempts = [
+        (TPEX_DAILY, None),
+        ("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes", {
+            "l": "zh-tw",
+            "d": roc_date,
+            "s": "0,asc,0",
+        }),
+        ("https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes", {
+            "date": today.strftime("%Y/%m/%d"),
+            "id": "",
+            "response": "json",
+        }),
+        ("https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php", {
+            "d": roc_date,
+            "l": "zh-tw",
+            "se": "EW",
+        }),
+    ]
 
     partial = []
     for url, params in attempts:
-        try:
-            r = requests.get(url, params=params, headers=UA, timeout=24)
-            r.raise_for_status()
-            payload = r.json()
-            rows = _extract_tpex_rows(payload)
-            out = []
-            seen = set()
-            for row in rows:
-                item = _parse_tpex_row(row)
-                if not item:
-                    continue
-                code = str(item.get("code", ""))
-                if code in seen:
-                    continue
-                seen.add(code)
-                out.append(item)
+        for retry in range(3):
+            try:
+                r = requests.get(
+                    url,
+                    params=params,
+                    headers={
+                        **UA,
+                        "Accept": "application/json,text/plain,*/*",
+                        "Referer": "https://www.tpex.org.tw/",
+                    },
+                    timeout=28,
+                )
+                r.raise_for_status()
+                payload = r.json()
+                rows = _extract_tpex_rows(payload)
 
-            if len(out) > len(partial):
-                partial = out
+                out = []
+                seen = set()
+                for row in rows:
+                    item = _parse_tpex_row(row)
+                    if not item:
+                        continue
+                    code = str(item.get("code", ""))
+                    if code in seen:
+                        continue
+                    seen.add(code)
+                    out.append(item)
 
-            if len(out) >= 500:
-                return _cache_set("TPEx", out)
-        except Exception:
-            continue
+                if len(out) > len(partial):
+                    partial = out
 
-    previous = _cache_last("TPEx")
+                # 上櫃完整名單通常超過 700 檔；取得 500 檔以上即可視為可用。
+                if len(out) >= 500:
+                    return _cache_set("TPEx", out)
+
+                if out:
+                    break
+            except Exception:
+                if retry < 2:
+                    time.sleep(1.2 * (retry + 1))
+                continue
+
+    # 來源暫時失敗時，優先沿用最近一次成功資料。
+    previous = _cache_last("TPEx") or _disk_last("TPEx")
     if previous:
         return previous
+
     if partial:
         return _cache_set("TPEx", partial)
-    return []
 
+    return []
 
 def all_universe():
     twse = twse_universe() or _cache_last("TWSE")
-    tpex = tpex_universe() or _cache_last("TPEx")
+    tpex = tpex_universe() or _cache_last("TPEx") or _disk_last("TPEx")
     merged = {}
     for item in list(twse) + list(tpex):
         key = f"{item.get('market', '')}:{item.get('code', '')}"
@@ -1095,7 +1152,7 @@ def api_sector_members():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V9 Ultimate", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V9.1", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
@@ -1125,6 +1182,8 @@ def scan():
     market = str(body.get("market", "all"))
     offset = max(0, int(body.get("offset", 0)))
     limit = min(40, max(1, int(body.get("limit", 20))))
+    client_stocks = body.get("stocks") if isinstance(body.get("stocks"), list) else []
+    client_total = max(0, int(body.get("clientTotal", 0) or 0))
 
     try:
         uni = all_universe()
@@ -1133,8 +1192,24 @@ def scan():
         elif market == "TPEx":
             uni = [item for item in uni if item.get("market") == "TPEx"]
 
+        # 若 Render 暫時抓不到上櫃名單，改用手機瀏覽器已保存的名單批次。
+        if client_stocks:
+            batch = []
+            for row in client_stocks[:limit]:
+                code = str(row.get("code", "")).strip()
+                if not re.fullmatch(r"\d{4}", code):
+                    continue
+                batch.append({
+                    "code": code,
+                    "name": str(row.get("name") or code),
+                    "market": str(row.get("market") or market or "TPEx"),
+                })
+            effective_total = client_total or len(batch)
+        else:
+            batch = uni[offset:offset + limit]
+            effective_total = len(uni)
+
         inst = institutional_map()
-        batch = uni[offset:offset + limit]
         results, errors = [], []
 
         with ThreadPoolExecutor(max_workers=4) as ex:
@@ -1157,10 +1232,10 @@ def scan():
             "ok": True,
             "period": period,
             "market": market,
-            "marketTotal": len(uni),
+            "marketTotal": effective_total,
             "offset": offset,
             "limit": limit,
-            "total": len(uni),
+            "total": effective_total,
             "processed": len(batch),
             "successCount": len(results),
             "errorCount": len(errors),

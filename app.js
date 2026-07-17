@@ -318,16 +318,24 @@ async function syncUniverse(){
   try{
     const d=await fetchJsonSafe('/api/universe');
     const rows=Array.isArray(d) ? d : (Array.isArray(d.data) ? d.data : []);
-    universe=rows;
-    localStorage.setItem('v63-universe',JSON.stringify(rows));
+    const oldRows=safeLoadUniverse();
+    const oldTpex=oldRows.filter(x=>x.market==='TPEx');
+    const newTpex=rows.filter(x=>x.market==='TPEx');
+    let mergedRows=rows;
+    if(newTpex.length===0 && oldTpex.length>0){
+      const listed=rows.filter(x=>x.market==='TWSE');
+      mergedRows=[...listed,...oldTpex];
+    }
+    universe=mergedRows;
+    localStorage.setItem('v63-universe',JSON.stringify(mergedRows));
     localStorage.setItem('v63-last-sync',new Date().toISOString());
     page=0;
     updateMarketCounters(0);
-    const listedCount=rows.filter(x=>x.market==='TWSE').length;
-    const otcCount=rows.filter(x=>x.market==='TPEx').length;
-    $('#progressText').textContent=`已同步 ${rows.length} 檔（上市 ${listedCount}／上櫃 ${otcCount}）`;
+    const listedCount=universe.filter(x=>x.market==='TWSE').length;
+    const otcCount=universe.filter(x=>x.market==='TPEx').length;
+    $('#progressText').textContent=`已同步 ${universe.length} 檔（上市 ${listedCount}／上櫃 ${otcCount}）`;
     renderWatch();
-    return rows;
+    return universe;
   }catch(err){
     $('#progressText').textContent='同步失敗';
     throw err;
@@ -343,12 +351,21 @@ async function scanPage(){
   const d=await fetchJsonSafe('/api/scan',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({
-    period,
-    market:document.getElementById('marketFilter')?.value||'all',
-    offset:page*pageSize,
-    limit:pageSize
-   })
+   body:JSON.stringify((()=>{
+    const market=document.getElementById('marketFilter')?.value||'all';
+    const selected=selectedMarketUniverse();
+    const batch=selected.slice(page*pageSize,(page+1)*pageSize).map(x=>({
+      code:x.code,name:x.name,market:x.market
+    }));
+    return {
+      period,
+      market,
+      offset:page*pageSize,
+      limit:pageSize,
+      clientTotal:selected.length,
+      stocks:batch
+    };
+   })())
   });
 
   results=Array.isArray(d.results)?d.results:[];
@@ -1199,3 +1216,13 @@ document.addEventListener('click',e=>{
   loadSectorMembers(market);
  }
 });
+
+function warnIfTpexMissing(){
+ const market=document.getElementById('marketFilter')?.value||'all';
+ const tpexCount=universe.filter(x=>x.market==='TPEx').length;
+ if(market==='TPEx' && tpexCount===0){
+  const el=document.getElementById('progressText');
+  if(el)el.textContent='上櫃名單暫時未取得，請先按「同步股票名單」重試';
+ }
+}
+document.getElementById('marketFilter')?.addEventListener('change',warnIfTpexMissing);
