@@ -1903,3 +1903,214 @@ main{
     height:20px !important;
   }
 }
+
+/* =========================================================
+   V9.2 Ultimate：技術條件多選 + 類股排行手機版修正
+   ========================================================= */
+.tech-filter-field{
+ position:relative;
+ display:flex;
+ flex-direction:column;
+ gap:9px;
+ color:#91a6be;
+ font-size:13px;
+ min-width:0;
+}
+.filter-label{display:block}
+.multi-select{position:relative;min-width:0}
+.multi-select-trigger{
+ width:100%;
+ min-height:56px;
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:12px;
+ padding:0 16px;
+ border:1px solid #294e6b;
+ border-radius:13px;
+ background:#0b2033;
+ color:#f1f5f9;
+ font-size:15px;
+ text-align:left;
+}
+.multi-arrow{font-size:20px;color:#a9b9c7}
+.multi-select-menu{
+ position:absolute;
+ z-index:80;
+ top:calc(100% + 8px);
+ left:0;
+ right:0;
+ display:none;
+ max-height:440px;
+ overflow:auto;
+ padding:8px;
+ border:1px solid #345b78;
+ border-radius:15px;
+ background:#111d28;
+ box-shadow:0 20px 44px rgba(0,0,0,.48);
+}
+.multi-select-menu.open{display:block}
+.multi-select-tools{
+ position:sticky;
+ top:-8px;
+ z-index:2;
+ display:grid;
+ grid-template-columns:auto auto 1fr;
+ align-items:center;
+ gap:7px;
+ margin:-8px -8px 6px;
+ padding:10px;
+ background:#0c1925;
+ border-bottom:1px solid #304656;
+}
+.multi-select-tools button{
+ padding:7px 10px;
+ border:1px solid #315773;
+ border-radius:9px;
+ background:#10293e;
+ color:#fff;
+ font-size:12px;
+}
+.multi-select-tools span{
+ text-align:right;
+ color:#3bd491;
+ font-size:11px;
+}
+.tech-check{
+ min-height:48px;
+ display:flex!important;
+ flex-direction:row!important;
+ align-items:center;
+ gap:12px!important;
+ padding:9px 11px;
+ border-bottom:1px solid rgba(121,147,166,.22);
+ color:#e5ebf0!important;
+ font-size:15px!important;
+ cursor:pointer;
+}
+.tech-check:last-of-type{border-bottom:0}
+.tech-check input{
+ width:21px;
+ height:21px;
+ flex:0 0 21px;
+ accent-color:#32bfff;
+}
+.multi-select-note{
+ margin:8px 6px 4px;
+ color:#93a5b5;
+ font-size:11px;
+ line-height:1.5;
+}
+
+/* 類股成分股：桌機保留表格式，手機改完整卡片，不超出畫面 */
+.sector-data-card small,
+.sector-data-card em{font-style:normal}
+.sector-data-card small{display:none}
+
+@media(max-width:760px){
+ .filter-panel{
+  overflow:visible!important;
+ }
+ .multi-select-menu{
+  position:fixed;
+  left:18px;
+  right:18px;
+  top:70px;
+  max-height:calc(100vh - 100px);
+ }
+ .sector-member-head{display:none!important}
+ .sector-member-row{
+  position:relative;
+  display:grid!important;
+  grid-template-columns:34px minmax(0,1fr) minmax(76px,.72fr)!important;
+  grid-template-areas:
+    "rank stock arrow"
+    "rank close change"
+    "rank ai flow";
+  gap:10px 12px!important;
+  width:100%!important;
+  min-height:0!important;
+  margin:0 0 10px!important;
+  padding:16px 14px!important;
+  border:1px solid #294d68!important;
+  border-radius:16px!important;
+  background:linear-gradient(180deg,#091e30,#071725)!important;
+  overflow:hidden!important;
+ }
+ .sector-rank{
+  grid-area:rank;
+  align-self:center;
+  font-size:20px!important;
+ }
+ .sector-stock{
+  grid-area:stock;
+  display:grid!important;
+  grid-template-columns:auto 1fr!important;
+  gap:2px 8px!important;
+  min-width:0;
+ }
+ .sector-stock b{font-size:17px!important}
+ .sector-stock strong{
+  font-size:15px!important;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+ }
+ .sector-stock small{
+  grid-column:1/-1;
+  font-size:11px!important;
+ }
+ .sector-data-card{
+  min-width:0;
+  display:flex!important;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  padding:9px 10px;
+  border:1px solid rgba(56,87,111,.55);
+  border-radius:11px;
+  background:#0a2033;
+ }
+ .sector-data-card small{
+  display:block;
+  margin-bottom:4px;
+  color:#8fa5b8;
+  font-size:9px;
+ }
+ .sector-data-card b{
+  font-size:14px!important;
+  line-height:1.2;
+ }
+ .sector-data-card em{
+  margin-top:3px;
+  font-size:11px;
+ }
+ .sector-close-card{grid-area:close}
+ .sector-change-card{grid-area:change}
+ .sector-ai-card{grid-area:ai}
+ .sector-ai-card b{color:#ff4d59;font-size:20px!important}
+ .sector-flow-card{grid-area:flow}
+ .sector-flow-card b,.sector-flow-card em{font-size:11px!important}
+ .sector-arrow{
+  grid-area:arrow;
+  justify-self:end;
+  align-self:center;
+  font-size:28px!important;
+ }
+}
+
+@media(max-width:390px){
+ .sector-member-row{
+  grid-template-columns:28px minmax(0,1fr) minmax(70px,.72fr)!important;
+  padding:13px 10px!important;
+  gap:8px!important;
+ }
+ .sector-data-card{padding:8px}
+ .multi-select-tools{
+  grid-template-columns:1fr 1fr;
+ }
+ .multi-select-tools span{
+  grid-column:1/-1;
+  text-align:left;
+ }
+}

@@ -465,10 +465,72 @@ function hasReason(x, keyword){
  return reasons.includes(keyword);
 }
 
+
+function getSelectedTechFilters(){
+ return [...document.querySelectorAll('#techMultiMenu input[type="checkbox"]:checked')].map(x=>x.value);
+}
+
+function updateTechMultiLabel(){
+ const selected=getSelectedTechFilters();
+ const text=document.getElementById('techMultiText');
+ const count=document.getElementById('techSelectedCount');
+ if(text){
+  if(selected.length===0)text.textContent='全部條件';
+  else if(selected.length===1){
+   const input=document.querySelector(`#techMultiMenu input[value="${selected[0]}"]`);
+   text.textContent=input?.closest('label')?.querySelector('span')?.textContent||'已選 1 個條件';
+  }else text.textContent=`已選 ${selected.length} 個條件`;
+ }
+ if(count)count.textContent=`已選 ${selected.length} 個條件`;
+}
+
+function closeTechMultiSelect(){
+ const menu=document.getElementById('techMultiMenu');
+ const trigger=document.getElementById('techMultiTrigger');
+ menu?.classList.remove('open');
+ trigger?.setAttribute('aria-expanded','false');
+}
+
+function initTechMultiSelect(){
+ const trigger=document.getElementById('techMultiTrigger');
+ const menu=document.getElementById('techMultiMenu');
+ if(!trigger||!menu)return;
+
+ trigger.addEventListener('click',e=>{
+  e.stopPropagation();
+  const open=menu.classList.toggle('open');
+  trigger.setAttribute('aria-expanded',open?'true':'false');
+ });
+
+ menu.addEventListener('click',e=>e.stopPropagation());
+
+ menu.querySelectorAll('input[type="checkbox"]').forEach(input=>{
+  input.addEventListener('change',()=>{
+   updateTechMultiLabel();
+   renderResults();
+  });
+ });
+
+ document.getElementById('techSelectAll')?.addEventListener('click',()=>{
+  menu.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=true);
+  updateTechMultiLabel();
+  renderResults();
+ });
+
+ document.getElementById('techClearAll')?.addEventListener('click',()=>{
+  menu.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);
+  updateTechMultiLabel();
+  renderResults();
+ });
+
+ document.addEventListener('click',closeTechMultiSelect);
+ updateTechMultiLabel();
+}
+
 function filteredResults(){
  const q=$('#search')?.value.trim()||'';
  const market=$('#marketFilter')?.value||'all';
- const tech=$('#techFilter')?.value||'all';
+ const techs=getSelectedTechFilters();
  const sort=$('#sortMode')?.value||'score_desc';
 
  let a=results.filter(x=>{
@@ -476,16 +538,19 @@ function filteredResults(){
   if(market!=='all' && x.market!==market) return false;
 
   const signal=getSignal(x);
-  if(tech==='macd_gold' && !(Number(x.MACD)>0 || hasReason(x,'MACD 柱翻正'))) return false;
-  if(tech==='kd_gold' && !hasReason(x,'KD 黃金交叉')) return false;
-  if(tech==='rsi_up' && !hasReason(x,'RSI 向上')) return false;
-  if(tech==='volume' && Number(x.volumeRatio)<1.2) return false;
-  if(tech==='ma_bull' && !hasReason(x,'站上')) return false;
-  if(tech==='above_ema100' && !x.aboveEMA100) return false;
-  if(tech==='ema100_rising' && !x.EMA100Rising) return false;
-  if(tech==='ema100_macd' && !x.EMA100MACDStrategy) return false;
-  if(tech==='buy' && signal.type!=='buy') return false;
-  if(tech==='sell' && signal.type!=='sell') return false;
+  const checks={
+   macd_gold:()=>Number(x.MACD)>0 || hasReason(x,'MACD 柱翻正') || hasReason(x,'MACD 黃金交叉'),
+   kd_gold:()=>hasReason(x,'KD 黃金交叉'),
+   rsi_up:()=>hasReason(x,'RSI 向上'),
+   volume:()=>Number(x.volumeRatio)>=1.2,
+   ma_bull:()=>hasReason(x,'站上均線') || hasReason(x,'站上短期均線') || hasReason(x,'站上中期均線'),
+   above_ema100:()=>Boolean(x.aboveEMA100),
+   ema100_rising:()=>Boolean(x.EMA100Rising),
+   ema100_macd:()=>Boolean(x.EMA100MACDStrategy),
+   buy:()=>signal.type==='buy',
+   sell:()=>signal.type==='sell'
+  };
+  if(techs.some(key=>checks[key] && !checks[key]())) return false;
   return true;
  });
 
@@ -1034,10 +1099,7 @@ function renderRanking(){
  }).join(''):'<p class="ranking-empty">尚無排行榜資料。完成 AI 掃描、單股分析或自選股分析後，會自動建立今日排行榜紀錄。</p>';
 }
 
-['techFilter','sortMode'].forEach(id=>{
- const el=document.getElementById(id);
- if(el) el.addEventListener('change',renderResults);
-});
+document.getElementById('sortMode')?.addEventListener('change',renderResults);
 const marketFilter=document.getElementById('marketFilter');
 if(marketFilter){
  marketFilter.addEventListener('change',()=>{
@@ -1170,14 +1232,15 @@ function sectorMemberRowHtml(x,index){
  const ch=Number(x.change||0);
  const cls=pct>0?'price-up':pct<0?'price-down':'price-flat';
  const symbol=pct>0?'▲':pct<0?'▼':'－';
+ const inst=Number(x.institutional||0);
+ const main=Number(x.mainForce||0);
  return `<button class="sector-member-row" type="button" onclick="analyzeSingleStock('${x.code}','day').then(()=>openStockDetailByCode('${x.code}'))">
    <span class="sector-rank">${index+1}</span>
    <span class="sector-stock"><b>${x.code}</b><strong>${x.name}</strong><small>${x.market==='TPEx'?'上櫃':'上市'}</small></span>
-   <span class="sector-close">${x.close??'-'}</span>
-   <span class="sector-move ${cls}"><span>${symbol} ${Math.abs(ch).toFixed(2)}</span></span>
-   <span class="sector-pct ${cls}">${Math.abs(pct).toFixed(2)}%</span>
-   <span class="sector-ai">${Number(x.aiScore||0)}</span>
-   <span class="sector-flow">法人 <b class="${Number(x.institutional||0)>=0?'price-up':'price-down'}">${Number(x.institutional||0)>=0?'+':''}${Number(x.institutional||0)}</b><small>主力 ${Number(x.mainForce||0)}</small></span>
+   <span class="sector-data-card sector-close-card"><small>收盤價</small><b>${x.close??'-'}</b></span>
+   <span class="sector-data-card sector-change-card ${cls}"><small>漲跌</small><b>${symbol} ${Math.abs(ch).toFixed(2)}</b><em>${Math.abs(pct).toFixed(2)}%</em></span>
+   <span class="sector-data-card sector-ai-card"><small>AI 總分</small><b>${Number(x.aiScore||0)}</b></span>
+   <span class="sector-data-card sector-flow-card"><small>法人／主力</small><b class="${inst>=0?'price-up':'price-down'}">法人 ${inst>=0?'+':''}${inst}</b><em>主力 ${main}</em></span>
    <span class="sector-arrow">›</span>
  </button>`;
 }
@@ -1226,3 +1289,5 @@ function warnIfTpexMissing(){
  }
 }
 document.getElementById('marketFilter')?.addEventListener('change',warnIfTpexMissing);
+
+document.addEventListener('DOMContentLoaded',initTechMultiSelect);

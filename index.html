@@ -2,12 +2,12 @@
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V9 Ultimate</title>
-<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=911">
+<link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=920">
 </head><body>
 <header class="v9-header">
       <div class="brand-block">
         <small>TAIWAN STOCK AI</small>
-        <h1>AI 台灣個股智慧選股 <b>V9.1</b></h1>
+        <h1>AI 台灣個股智慧選股 <b>V9.2</b></h1>
       </div>
       <span id="health" class="health-badge"><span class="cloud-mark">⌁</span>連線中</span>
     </header>
@@ -43,21 +43,33 @@
       <option value="TPEx">上櫃</option>
     </select>
   </label>
-  <label>技術條件
-    <select id="techFilter">
-      <option value="all">全部條件</option>
-      <option value="macd_gold">MACD 黃金交叉／翻正</option>
-      <option value="kd_gold">KD 黃金交叉</option>
-      <option value="rsi_up">RSI 向上</option>
-      <option value="volume">量能放大</option>
-      <option value="ma_bull">站上均線</option>
-      <option value="above_ema100">股價站上 EMA100</option>
-      <option value="ema100_rising">EMA100 上彎</option>
-      <option value="ema100_macd">EMA100＋MACD 黃金交叉</option>
-      <option value="buy">買入燈號</option>
-      <option value="sell">賣出燈號</option>
-    </select>
-  </label>
+  <div class="tech-filter-field">
+  <span class="filter-label">技術條件</span>
+  <div class="multi-select" id="techMultiSelect">
+    <button type="button" class="multi-select-trigger" id="techMultiTrigger" aria-expanded="false">
+      <span id="techMultiText">全部條件</span>
+      <span class="multi-arrow">⌄</span>
+    </button>
+    <div class="multi-select-menu" id="techMultiMenu">
+      <div class="multi-select-tools">
+        <button type="button" id="techSelectAll">全選</button>
+        <button type="button" id="techClearAll">全部取消</button>
+        <span id="techSelectedCount">已選 0 個條件</span>
+      </div>
+      <label class="tech-check"><input type="checkbox" value="macd_gold"><span>MACD 黃金交叉／翻正</span></label>
+      <label class="tech-check"><input type="checkbox" value="kd_gold"><span>KD 黃金交叉</span></label>
+      <label class="tech-check"><input type="checkbox" value="rsi_up"><span>RSI 向上</span></label>
+      <label class="tech-check"><input type="checkbox" value="volume"><span>量能放大</span></label>
+      <label class="tech-check"><input type="checkbox" value="ma_bull"><span>站上均線</span></label>
+      <label class="tech-check"><input type="checkbox" value="above_ema100"><span>股價站上 EMA100</span></label>
+      <label class="tech-check"><input type="checkbox" value="ema100_rising"><span>EMA100 上彎</span></label>
+      <label class="tech-check"><input type="checkbox" value="ema100_macd"><span>EMA100＋MACD 黃金交叉</span></label>
+      <label class="tech-check"><input type="checkbox" value="buy"><span>買入燈號</span></label>
+      <label class="tech-check"><input type="checkbox" value="sell"><span>賣出燈號</span></label>
+      <p class="multi-select-note">勾選多個條件時，股票必須同時符合全部條件。</p>
+    </div>
+  </div>
+</div>
   <label>排序
     <select id="sortMode">
       <option value="score_desc">AI 分數高→低</option>
@@ -381,5 +393,5 @@
   </section>
 </div>
 
-<script src="/app.js?v=911"></script>
+<script src="/app.js?v=920"></script>
 </body></html>
