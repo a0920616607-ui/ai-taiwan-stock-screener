@@ -831,3 +831,37 @@ body.modal-open{overflow:hidden}
 .watch-analyze-btn.failed{color:#fff!important;background:#9d2635!important;border-color:#ef6170!important}
 .mini-spinner{display:inline-block;width:14px;height:14px;margin-right:7px;border:2px solid rgba(255,255,255,.38);border-top-color:#fff;border-radius:50%;animation:miniSpin .7s linear infinite;vertical-align:-2px}
 @keyframes miniSpin{to{transform:rotate(360deg)}}
+
+/* V8.4.1 三項修正 */
+.pro-close{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+}
+.pro-close .price-change{
+  margin-top:0;
+  font-size:12px;
+}
+.watch-stock-open{
+  position:relative;
+  min-height:88px;
+  border:1px solid transparent;
+  border-radius:12px;
+  padding:10px 12px;
+}
+.watch-click-status{
+  display:block;
+  min-height:20px;
+  margin-top:8px;
+  color:#8fa6bd;
+  font-size:13px;
+  font-weight:800;
+}
+.watch-analyze-btn.analyzing{pointer-events:none}
+.watch-analyze-btn.done{pointer-events:auto}
+.watch-analyze-btn.done .watch-click-status{color:#57eca8}
+.watch-analyze-btn.failed .watch-click-status{color:#ff7580}
+.sector-panel-card{margin-top:12px}
+.sector-grid{margin-top:12px}

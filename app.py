@@ -810,6 +810,8 @@ def analyze(code, name, period, inst):
         "period": period,
         "date": rows[-1]["date"],
         "close": round(c[i], 2),
+        "change": round(c[i] - c[p], 2),
+        "changePct": round(price_change, 2),
         "score": ai_score,
         "aiScore": ai_score,
         "technicalScore": technical_score,
@@ -929,7 +931,7 @@ def api_sectors():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V8.4", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V8.4.1", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():

@@ -382,7 +382,7 @@ function renderResults(){
       ${x.EMA100MACDStrategy?'<em class="strategy-badge">EMA100策略</em>':''}
     </button>
 
-    <div class="pro-close">${x.close??'-'}</div>
+    <div class="pro-close"><b>${x.close??'-'}</b>${formatPriceChange(x)}</div>
 
     <div class="pro-signal signal-${signal.type}">
       <span class="pro-signal-icon">${signal.icon}</span>
@@ -454,7 +454,7 @@ function renderWatch(){
    <button class="remove-stock" title="移除自選股" onclick="removeWatch('${code}')">×</button>
    <button class="watch-stock-open watch-analyze-btn" type="button" data-watch-analyze="${code}" onclick="openWatchStockAnalysis('${code}',this)">
     <h3>${name} ${code}</h3>
-    <p>${x?`${labelPeriod(x.period)}｜AI ${x.aiScore??x.score}｜收盤 ${x.close}<div>${formatPriceChange(x)}</div>`:'點擊立即進行完整 AI 分析'}</p>
+    <p>${x?`${labelPeriod(x.period)}｜AI ${x.aiScore??x.score}｜收盤 ${x.close}`:'點擊立即進行完整 AI 分析'}</p><span class="watch-click-status"></span>
    </button>
    <div class="watch-actions">
     <button class="move-stock" onclick="chooseGroup('${code}')">移動分類</button>
@@ -616,7 +616,11 @@ document.querySelectorAll('.period').forEach(b=>b.onclick=()=>{
 });
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));
- b.classList.add('active');$('#'+b.dataset.p).classList.add('active');
+ b.classList.add('active');
+ const panel=$('#'+b.dataset.p);
+ if(panel)panel.classList.add('active');
+ if(b.dataset.p==='twseSectorsPanel')loadSectors('TWSE');
+ if(b.dataset.p==='tpexSectorsPanel')loadSectors('TPEx');
 });
 fetch('/api/health').then(r=>r.json()).then(()=>$('#health').textContent='雲端正常').catch(()=>$('#health').textContent='連線異常');
 renderGroups();renderWatch();renderResults();
@@ -941,26 +945,40 @@ window.addEventListener('resize',()=>{
 
 window.openWatchStockAnalysis=async function(code,button=null){
  const btn=button||document.querySelector(`[data-watch-analyze="${code}"]`);
- const original=btn?.innerHTML;
- if(btn){btn.classList.add('analyzing');btn.disabled=true;btn.innerHTML='<span class="mini-spinner"></span>分析中…';}
+ if(btn?.dataset.busy==='1')return;
+ const status=btn?.querySelector('.watch-click-status');
+ if(btn){
+  btn.dataset.busy='1';
+  btn.classList.remove('done','failed');
+  btn.classList.add('analyzing');
+  if(status)status.innerHTML='<span class="mini-spinner"></span>分析中…';
+ }
  try{
-  const existing=results.find(v=>v.code===code)||allScannedResults.find(v=>v.code===code);
-  if(existing){
-   if(btn){btn.classList.remove('analyzing');btn.classList.add('done');btn.innerHTML='✓ 已完成';}
-   setTimeout(()=>openStockDetailByCode(code),180);return;
+  let stock=results.find(v=>v.code===code)||allScannedResults.find(v=>v.code===code);
+  if(!stock){
+   stock=await analyzeSingleStock(code,singlePeriod);
+   if(!stock)throw new Error('分析失敗');
+   if(!allScannedResults.some(x=>x.code===stock.code))allScannedResults.push(stock);
+   if(!results.some(x=>x.code===stock.code))results.push(stock);
   }
-  const result=await analyzeSingleStock(code,singlePeriod);
-  if(!result)throw new Error('分析失敗');
-  if(!allScannedResults.some(x=>x.code===result.code))allScannedResults.push(result);
-  if(!results.some(x=>x.code===result.code))results.push(result);
-  if(btn){btn.classList.remove('analyzing');btn.classList.add('done');btn.innerHTML='✓ 已完成';}
-  setTimeout(()=>openStockDetailByCode(result.code),180);
+  if(btn){
+   btn.classList.remove('analyzing');
+   btn.classList.add('done');
+   if(status)status.textContent='✓ 已完成，開啟分析';
+  }
+  setTimeout(()=>{
+   if(btn){btn.dataset.busy='0';btn.disabled=false;}
+   openStockDetailByCode(stock.code);
+  },320);
  }catch(e){
   if(btn){
-   btn.classList.remove('analyzing','done');btn.classList.add('failed');btn.disabled=false;btn.innerHTML='重新分析';
-   setTimeout(()=>{btn.classList.remove('failed');btn.innerHTML=original||'立即 AI 分析';},1800);
+   btn.dataset.busy='0';
+   btn.disabled=false;
+   btn.classList.remove('analyzing','done');
+   btn.classList.add('failed');
+   if(status)status.textContent='分析失敗，點擊重試';
+   setTimeout(()=>btn.classList.remove('failed'),1600);
   }
-  throw e;
  }
 };
 bindStockAutocomplete('#singleCode','#singleSuggestions',row=>{
@@ -977,15 +995,4 @@ document.addEventListener('click',e=>{
  }
 });
 
-document.querySelectorAll('[data-page]').forEach(btn=>{
- btn.addEventListener('click',()=>{
-  const page=btn.dataset.page;
-  if(page==='twseSectors'||page==='tpexSectors'){
-   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
-   document.getElementById(page==='twseSectors'?'twseSectorsPage':'tpexSectorsPage')?.classList.add('active');
-   document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x===btn));
-   loadSectors(page==='twseSectors'?'TWSE':'TPEx');
-  }
- });
-});
 document.querySelectorAll('.sector-refresh').forEach(btn=>btn.addEventListener('click',()=>loadSectors(btn.dataset.market)));
