@@ -698,10 +698,18 @@ function filteredResults(){
  const market=$('#marketFilter')?.value||'all';
  const techs=getSelectedTechFilters();
  const sort=$('#sortMode')?.value||'score_desc';
+ const minScore=Number(document.getElementById('minScoreFilter')?.value||70);
+ const maxDistance=Number(document.getElementById('emaDistanceFilter')?.value||5);
+ const earlyOnly=Boolean(document.getElementById('earlyTrendOnly')?.checked);
 
  let a=results.filter(x=>{
   if(q && !x.code.includes(q) && !x.name.includes(q)) return false;
   if(market!=='all' && x.market!==market) return false;
+  const ai=Number(x.aiScore??x.score??0);
+  const distance=Number(x.EMADistancePct);
+  if(ai<minScore)return false;
+  if(maxDistance<999 && (!Number.isFinite(distance) || distance<0 || distance>maxDistance))return false;
+  if(earlyOnly && !Boolean(x.earlyTrend))return false;
 
   const signal=getSignal(x);
   const close=Number(x.close||0);
@@ -769,7 +777,7 @@ function renderResults(){
       <b>${x.code}</b>
       <span>${x.name}</span>
       <small>${x.market==='TPEx'?'上櫃':'上市'}</small>
-      ${x.EMA100MACDStrategy?'<em class="strategy-badge">EMA100策略</em>':''}
+      ${x.earlyTrend?'<em class="strategy-badge">AI起漲</em>':x.EMA100MACDStrategy?'<em class="strategy-badge">EMA100策略</em>':''}<small class="metric-note">乖離 ${Number.isFinite(Number(x.EMADistancePct))?Number(x.EMADistancePct).toFixed(1)+'%':'-'}｜布林 ${x.bollPosition||'-'}</small>
     </button>
 
     <div class="pro-close"><b>${x.close??'-'}</b>${formatPriceChange(x)}</div>
@@ -1069,7 +1077,7 @@ function drawEMA100Chart(stock){
  }
 
  const pad={left:48,right:16,top:20,bottom:32};
- const values=points.flatMap(p=>[Number(p.close),Number(p.ema100)]);
+ const values=points.flatMap(p=>[Number(p.close),Number(p.ema100),Number(p.bollUpper),Number(p.bollLower)]).filter(Number.isFinite);
  let min=Math.min(...values),max=Math.max(...values);
  const spread=Math.max(max-min,max*0.02,1);
  min-=spread*0.12;
@@ -1107,6 +1115,20 @@ function drawEMA100Chart(stock){
   ctx.stroke();
  };
 
+ const drawOptionalLine=(key,stroke,lineWidth)=>{
+  const valid=points.filter(p=>Number.isFinite(Number(p[key])));
+  if(valid.length<2)return;
+  ctx.beginPath(); let started=false;
+  points.forEach((p,i)=>{
+   const value=Number(p[key]);
+   if(!Number.isFinite(value)){started=false;return;}
+   if(!started){ctx.moveTo(x(i),y(value));started=true;}else ctx.lineTo(x(i),y(value));
+  });
+  ctx.strokeStyle=stroke;ctx.lineWidth=lineWidth;ctx.stroke();
+ };
+ drawOptionalLine('bollUpper','rgba(170,130,255,.72)',1.4);
+ drawOptionalLine('bollMid','rgba(170,130,255,.5)',1.1);
+ drawOptionalLine('bollLower','rgba(170,130,255,.72)',1.4);
  drawLine('ema100','#ffb84d',2.2);
  drawLine('close','#27c8ff',2.6);
 
@@ -1210,6 +1232,8 @@ window.openStockDetailByCode=function(code){
  $('#detailVR').textContent=x.volumeRatio??'-';
  if($('#detailEMA100')) $('#detailEMA100').textContent=x.EMA100??'-';
  if($('#detailEMA100Strategy')) $('#detailEMA100Strategy').textContent=x.EMA100MACDStrategy?'成立':'未成立';
+ if($('#detailEMADistance')) $('#detailEMADistance').textContent=Number.isFinite(Number(x.EMADistancePct))?`${Number(x.EMADistancePct)>=0?'+':''}${Number(x.EMADistancePct).toFixed(2)}%`:'-';
+ if($('#detailBoll')) $('#detailBoll').textContent=`${x.bollPosition||'-'}${x.bollExpanding?'／開口':'／收斂'}`;
  renderEMA100Signal(x);
 
  $('#detailSignal').className=`big-signal signal-${signal.type}`;
@@ -1298,6 +1322,7 @@ function renderRanking(){
 }
 
 document.getElementById('sortMode')?.addEventListener('change',renderResults);
+['minScoreFilter','emaDistanceFilter','earlyTrendOnly'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{page=0;renderResults();}));
 const marketFilter=document.getElementById('marketFilter');
 if(marketFilter){
  marketFilter.addEventListener('change',()=>{

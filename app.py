@@ -2,7 +2,7 @@
 from flask import Flask, jsonify, request, send_from_directory
 from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import requests, os, re, json
+import requests, os, re, json, math
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
@@ -735,6 +735,36 @@ def analyze(code, name, period, inst):
         above_ema100 and ema100_rising and macd_golden_cross
     )
 
+    # 布林通道 Bollinger Bands (20, 2)
+    boll_mid_series = []
+    boll_upper_series = []
+    boll_lower_series = []
+    boll_width_series = []
+    for bi in range(len(c)):
+        if bi < 19:
+            boll_mid_series.append(None); boll_upper_series.append(None); boll_lower_series.append(None); boll_width_series.append(None)
+            continue
+        window = c[bi-19:bi+1]
+        mid = sum(window) / 20
+        variance = sum((value-mid)**2 for value in window) / 20
+        std = math.sqrt(variance)
+        upper = mid + 2*std
+        lower = mid - 2*std
+        width = ((upper-lower)/mid*100) if mid else None
+        boll_mid_series.append(mid); boll_upper_series.append(upper); boll_lower_series.append(lower); boll_width_series.append(width)
+    boll_mid = boll_mid_series[i]
+    boll_upper = boll_upper_series[i]
+    boll_lower = boll_lower_series[i]
+    boll_width = boll_width_series[i]
+    prev_boll_width = boll_width_series[p]
+    boll_expanding = bool(boll_width is not None and prev_boll_width is not None and boll_width > prev_boll_width)
+    boll_position = (
+        "突破上軌" if boll_upper is not None and c[i] > boll_upper else
+        "上半部" if boll_mid is not None and c[i] >= boll_mid else
+        "跌破下軌" if boll_lower is not None and c[i] < boll_lower else
+        "下半部"
+    )
+
     ema_distance_pct = (
         ((c[i] - ema100_now) / ema100_now) * 100
         if ema100_now not in (None, 0) else None
@@ -840,6 +870,15 @@ def analyze(code, name, period, inst):
     if ema100_macd_strategy:
         technical_score += 10
         technical_reasons.append("EMA100 多頭策略成立 +10")
+    if ema_distance_pct is not None and 0 <= ema_distance_pct <= 5:
+        technical_score += 8
+        technical_reasons.append("EMA100 正乖離 5% 內 +8")
+    if boll_mid is not None and c[i] >= boll_mid:
+        technical_score += 5
+        technical_reasons.append("股價位於布林中軌上方 +5")
+    if boll_expanding and boll_mid is not None and c[i] >= boll_mid:
+        technical_score += 5
+        technical_reasons.append("布林帶多方開口 +5")
 
     if vr >= 1.5:
         technical_score += 8
@@ -947,10 +986,10 @@ def analyze(code, name, period, inst):
         else "主力中性"
     )
 
-    # 三合一 AI 總分：技術 50% + 法人 30% + 主力 20%
+    # V9.4 AI 總分：提高趨勢與技術權重，法人與主力作確認
     ai_score = round(
-        technical_score * 0.50 +
-        institutional_score * 0.30 +
+        technical_score * 0.55 +
+        institutional_score * 0.25 +
         main_force_score * 0.20
     )
     ai_score = max(0, min(100, ai_score))
@@ -972,6 +1011,9 @@ def analyze(code, name, period, inst):
             "date": rows[idx]["date"],
             "close": round(c[idx], 2),
             "ema100": round(ema_value, 2) if ema_value is not None else None,
+            "bollMid": round(boll_mid_series[idx], 2) if boll_mid_series[idx] is not None else None,
+            "bollUpper": round(boll_upper_series[idx], 2) if boll_upper_series[idx] is not None else None,
+            "bollLower": round(boll_lower_series[idx], 2) if boll_lower_series[idx] is not None else None,
         })
 
     return {
@@ -1001,6 +1043,13 @@ def analyze(code, name, period, inst):
         "EMA100Rising": ema100_rising,
         "EMA100MACDStrategy": ema100_macd_strategy,
         "EMADistancePct": round(ema_distance_pct, 2) if ema_distance_pct is not None else None,
+        "earlyTrend": bool(above_ema100 and ema100_rising and dif[i] > 0 and macd_golden_cross and ema_distance_pct is not None and 0 <= ema_distance_pct <= 5),
+        "bollMid": round(boll_mid, 2) if boll_mid is not None else None,
+        "bollUpper": round(boll_upper, 2) if boll_upper is not None else None,
+        "bollLower": round(boll_lower, 2) if boll_lower is not None else None,
+        "bollWidth": round(boll_width, 2) if boll_width is not None else None,
+        "bollExpanding": boll_expanding,
+        "bollPosition": boll_position,
         "bullStrength": bull_strength,
         "bearStrength": bear_strength,
         "emaSignalReasons": ema_signal_reasons,
@@ -1152,7 +1201,7 @@ def api_sector_members():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V9.3a", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V9.4", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():

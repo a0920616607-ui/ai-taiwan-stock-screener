@@ -2513,3 +2513,11 @@ main{
   0%,100%{opacity:.45;transform:scale(.85)}
   50%{opacity:1;transform:scale(1.08)}
 }
+
+/* V9.4 選股品質與布林通道 */
+.inline-check{display:flex!important;align-items:center;gap:8px;min-height:44px}
+.inline-check input{width:18px;height:18px}
+.metric-note{display:block;margin-top:4px;color:#91a4ba;font-size:11px;font-weight:600}
+.legend-boll{display:inline-block;width:18px;height:3px;border-radius:4px;background:#a882ff;margin-right:5px}
+.filter-panel{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+@media(max-width:560px){.filter-panel{grid-template-columns:1fr 1fr}.inline-check{grid-column:1/-1}}

@@ -7,7 +7,7 @@
 <header class="v9-header">
       <div class="brand-block">
         <small>TAIWAN STOCK AI</small>
-        <h1>AI 台灣個股智慧選股 <b>V9.3a</b></h1>
+        <h1>AI 台灣個股智慧選股 <b>V9.4</b></h1>
       </div>
       <span id="health" class="health-badge"><span class="cloud-mark">⌁</span>連線中</span>
     </header>
@@ -108,6 +108,24 @@
     </div>
   </div>
 </div>
+  <label>最低分數
+    <select id="minScoreFilter">
+      <option value="70" selected>70 分以上</option>
+      <option value="80">80 分以上</option>
+      <option value="90">90 分以上</option>
+      <option value="0">顯示全部</option>
+    </select>
+  </label>
+  <label>EMA100 乖離上限
+    <select id="emaDistanceFilter">
+      <option value="5" selected>5% 以內</option>
+      <option value="3">3% 以內</option>
+      <option value="8">8% 以內</option>
+      <option value="10">10% 以內</option>
+      <option value="999">不限</option>
+    </select>
+  </label>
+  <label class="inline-check"><input id="earlyTrendOnly" type="checkbox">只顯示 AI 起漲</label>
   <label>排序
     <select id="sortMode">
       <option value="score_desc">AI 分數高→低</option>
@@ -351,6 +369,8 @@
         <span>量比 <b id="detailVR">-</b></span>
         <span>EMA100 <b id="detailEMA100">-</b></span>
         <span>EMA100策略 <b id="detailEMA100Strategy">-</b></span>
+        <span>EMA乖離 <b id="detailEMADistance">-</b></span>
+        <span>布林狀態 <b id="detailBoll">-</b></span>
       </div>
 
       <div id="detailVolume" class="volume-alert hint-flat">
@@ -379,8 +399,8 @@
         <section class="reason-panel ema-signal-panel" data-reason-panel="ema">
           <div class="ema-chart-head">
             <div>
-              <h4>EMA100 趨勢圖</h4>
-              <p>價格線與 EMA100 的相對位置</p>
+              <h4>EMA100＋布林通道</h4>
+              <p>價格、EMA100 與 Bollinger Bands（20,2）</p>
             </div>
             <div id="emaPositionBadge" class="ema-position neutral">判斷中</div>
           </div>
@@ -390,6 +410,7 @@
             <div class="ema-chart-legend">
               <span><i class="legend-price"></i>個股價格</span>
               <span><i class="legend-ema"></i>EMA100</span>
+              <span><i class="legend-boll"></i>布林通道</span>
             </div>
           </div>
 
