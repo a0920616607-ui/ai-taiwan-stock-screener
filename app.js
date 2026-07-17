@@ -4,7 +4,10 @@ function formatPriceChange(stock){
  const pct=Number(stock?.changePct ?? stock?.priceChange ?? 0);
  const cls=change>0?'price-up':change<0?'price-down':'price-flat';
  const symbol=change>0?'▲':change<0?'▼':'－';
- return `<span class="price-change ${cls}"><span class="change-symbol">${symbol}</span><span class="change-value">${Math.abs(change).toFixed(2)}（${Math.abs(pct).toFixed(2)}%）</span></span>`;
+ return `<span class="price-change ${cls}">
+  <span class="change-line"><span class="change-symbol">${symbol}</span><span class="change-value">${Math.abs(change).toFixed(2)}</span></span>
+  <span class="change-percent">${Math.abs(pct).toFixed(2)}%</span>
+ </span>`;
 }
 function sectorCardHtml(row){
  const pct=Number(row.changePct||0);

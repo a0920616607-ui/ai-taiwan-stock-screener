@@ -865,3 +865,41 @@ body.modal-open{overflow:hidden}
 .watch-analyze-btn.failed .watch-click-status{color:#ff7580}
 .sector-panel-card{margin-top:12px}
 .sector-grid{margin-top:12px}
+
+/* V8.4.2 漲跌排版：百分比置於漲跌值正下方 */
+.pro-close{
+  min-width:74px;
+}
+.price-change{
+  display:flex !important;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  width:100%;
+  margin-top:3px;
+  font-size:12px;
+  line-height:1.05;
+}
+.change-line{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  white-space:nowrap;
+}
+.change-percent{
+  display:block;
+  font-size:11px;
+  font-weight:800;
+  line-height:1;
+  white-space:nowrap;
+}
+.change-symbol{
+  width:12px;
+  min-width:12px;
+  font-size:12px;
+}
+.sector-panel-card{
+  min-height:420px;
+}

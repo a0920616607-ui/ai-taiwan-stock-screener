@@ -28,6 +28,52 @@ def pick(row, names):
             return row[name]
     return None
 
+def _calc_change_pct(close, change):
+    try:
+        close = float(close)
+        change = float(change)
+        previous = close - change
+        if previous == 0:
+            return 0.0
+        return round(change / previous * 100, 2)
+    except Exception:
+        return 0.0
+
+def classify_sector(name):
+    """類股快速分類。官方資料若沒有產業欄位時，依名稱關鍵字分類。"""
+    n = str(name or "")
+    rules = [
+        ("ETF／指數", ("元大", "富邦", "國泰", "群益", "中信", "復華", "統一台灣", "野村", "兆豐", "永豐", "新光標普")),
+        ("水泥工業", ("水泥", "亞泥", "台泥", "嘉泥", "環泥")),
+        ("食品工業", ("食品", "味全", "味王", "卜蜂", "大成", "統一", "佳格", "聯華食")),
+        ("塑膠工業", ("塑膠", "台塑", "南亞", "台聚", "亞聚", "華夏", "聯成")),
+        ("紡織纖維", ("紡織", "纖維", "儒鴻", "聚陽", "遠東新", "力麗", "宏遠")),
+        ("電機機械", ("電機", "機械", "工具機", "亞德客", "上銀", "東元", "大同")),
+        ("電器電纜", ("電纜", "電器", "華新", "大亞", "億泰", "宏泰")),
+        ("化學工業", ("化學", "化工", "長興", "永光", "三晃", "和益")),
+        ("生技醫療", ("生技", "醫療", "藥", "製藥", "保瑞", "藥華藥", "美時")),
+        ("玻璃陶瓷", ("玻璃", "陶瓷", "冠軍", "中釉")),
+        ("造紙工業", ("紙", "正隆", "永豐餘", "榮成")),
+        ("鋼鐵工業", ("鋼", "鐵", "中鋼", "東和鋼鐵", "大成鋼", "豐興")),
+        ("橡膠工業", ("橡膠", "輪胎", "正新", "建大", "南港")),
+        ("汽車工業", ("汽車", "車電", "裕隆", "和泰車", "中華車", "三陽工業")),
+        ("半導體業", ("積電", "聯電", "半導體", "世界", "力積電", "聯發科", "瑞昱", "矽力", "旺宏", "華邦電")),
+        ("電腦週邊", ("電腦", "資訊", "華碩", "宏碁", "廣達", "仁寶", "緯創", "英業達", "技嘉", "微星")),
+        ("光電業", ("光電", "面板", "友達", "群創", "元太", "晶電", "富采")),
+        ("通信網路", ("通信", "網路", "中華電", "台灣大", "遠傳", "智邦", "啟碁")),
+        ("電子組件", ("電子", "連接器", "被動元件", "國巨", "華新科", "台達電", "鴻海", "臻鼎", "欣興")),
+        ("航運業", ("航運", "航空", "長榮", "陽明", "萬海", "華航", "長榮航")),
+        ("金融保險", ("金控", "銀行", "金融", "保險", "證券", "票券")),
+        ("建材營造", ("建設", "營造", "工", "興富發", "華固", "遠雄", "冠德")),
+        ("觀光餐旅", ("飯店", "餐旅", "餐飲", "王品", "瓦城", "晶華")),
+        ("貿易百貨", ("百貨", "超商", "全家", "統一超", "遠百", "特力")),
+    ]
+    for sector, keywords in rules:
+        if any(k in n for k in keywords):
+            return sector
+    return "其他"
+
+
 def twse_universe():
     r = requests.get(TWSE_DAILY, headers=UA, timeout=30)
     r.raise_for_status()
@@ -40,10 +86,15 @@ def twse_universe():
         close = num(pick(x, ["ClosingPrice", "收盤價"]))
         if close is None:
             continue
+        name = str(pick(x, ["Name", "證券名稱"]) or code).strip()
+        change = num(pick(x, ["Change", "漲跌價差", "ChangeAmount"])) or 0
         out.append({
             "code": code,
-            "name": str(pick(x, ["Name", "證券名稱"]) or code).strip(),
+            "name": name,
             "close": close,
+            "change": change,
+            "changePct": _calc_change_pct(close, change),
+            "industry": str(pick(x, ["Industry", "產業別", "IndustryName"]) or classify_sector(name)),
             "market": "TWSE"
         })
     return out
@@ -88,6 +139,7 @@ def _parse_tpex_row(x):
         code = str(x[0]).strip()
         name = str(x[1]).strip()
         close = num(x[2])
+        change = num(x[3]) if len(x) > 3 else 0
     elif isinstance(x, dict):
         code = str(pick(x, [
             "SecuritiesCompanyCode", "證券代號", "Code", "股票代號",
@@ -103,6 +155,10 @@ def _parse_tpex_row(x):
             "Close", "收盤價", "ClosingPrice", "ClosePrice",
             "ClosePriceToday", "最後成交價"
         ]))
+        change = num(pick(x, [
+            "Change", "漲跌", "漲跌價差", "ChangeAmount",
+            "ChangeValue", "PriceChange"
+        ])) or 0
     else:
         return None
 
@@ -112,10 +168,14 @@ def _parse_tpex_row(x):
         # 名單仍可保留；掃描時會由 Yahoo chart 取得價格。
         close = 0
 
+    name = name or code
     return {
         "code": code,
-        "name": name or code,
+        "name": name,
         "close": close,
+        "change": change or 0,
+        "changePct": _calc_change_pct(close, change or 0),
+        "industry": classify_sector(name),
         "market": "TPEx"
     }
 
@@ -896,42 +956,45 @@ def api_sectors():
         rows = all_universe()
         if market in ("TWSE", "TPEx"):
             rows = [x for x in rows if x.get("market") == market]
+
         grouped = {}
         for item in rows:
-            sector = item.get("industry") or item.get("sector") or item.get("category") or "其他"
-            grouped.setdefault(str(sector), []).append(item)
+            sector = str(item.get("industry") or classify_sector(item.get("name")) or "其他")
+            grouped.setdefault(sector, []).append(item)
+
         results = []
         for sector, members in grouped.items():
-            changes = []
-            up = down = flat = 0
-            for item in members:
-                try:
-                    result = analyze(str(item.get("code", "")), "day")
-                    pct = float(result.get("changePct", result.get("priceChangePct", 0)) or 0)
-                    changes.append(pct)
-                    if pct > 0: up += 1
-                    elif pct < 0: down += 1
-                    else: flat += 1
-                except Exception:
-                    continue
-            if not changes:
+            valid = [x for x in members if x.get("close") is not None]
+            if not valid:
                 continue
+            pcts = [float(x.get("changePct") or 0) for x in valid]
+            up = sum(1 for p in pcts if p > 0)
+            down = sum(1 for p in pcts if p < 0)
+            flat = len(pcts) - up - down
             results.append({
                 "sector": sector,
                 "count": len(members),
-                "sampleCount": len(changes),
-                "changePct": round(sum(changes)/len(changes), 2),
-                "up": up, "down": down, "flat": flat,
+                "sampleCount": len(valid),
+                "changePct": round(sum(pcts) / len(pcts), 2),
+                "up": up,
+                "down": down,
+                "flat": flat,
             })
+
         results.sort(key=lambda x: x["changePct"], reverse=True)
-        return jsonify({"ok": True, "market": market, "results": results, "count": len(results)})
+        return jsonify({
+            "ok": True,
+            "market": market,
+            "results": results,
+            "count": len(results),
+        })
     except Exception as exc:
         return api_error("類股資料暫時無法取得，請稍後再試。", 503, detail=str(exc)[:180])
 
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V8.4.1", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V8.4.2", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
