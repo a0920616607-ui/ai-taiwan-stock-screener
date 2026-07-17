@@ -2496,3 +2496,20 @@ main{
   }
   .pro-list-head{font-size:8px !important}
 }
+
+/* V9.3a 連線錯誤處理 */
+#progressText{
+  white-space:normal !important;
+  line-height:1.45 !important;
+}
+#empty{
+  white-space:normal !important;
+  line-height:1.55 !important;
+}
+.smart-scan-button.running .smart-scan-icon{
+  animation:v93aPulse 1s ease-in-out infinite;
+}
+@keyframes v93aPulse{
+  0%,100%{opacity:.45;transform:scale(.85)}
+  50%{opacity:1;transform:scale(1.08)}
+}

@@ -1017,7 +1017,7 @@ def analyze(code, name, period, inst):
 
 
 def api_error(message, status=500, **extra):
-    payload = {"ok": False, "error": message}
+    payload = {"ok": False, "error": message, "retryable": status in (408, 425, 429, 500, 502, 503, 504)}
     payload.update(extra)
     return jsonify(payload), status
 
@@ -1157,9 +1157,46 @@ def health():
 @app.get("/api/universe")
 def universe():
     try:
-        return jsonify(all_universe())
-    except Exception as e:
-        return jsonify(error=str(e)), 502
+        rows = all_universe()
+        if rows:
+            return jsonify({
+                "ok": True,
+                "data": rows,
+                "count": len(rows),
+                "cached": False,
+            })
+
+        cached_rows = (_cache_last("TWSE") or _disk_last("TWSE")) + (_cache_last("TPEx") or _disk_last("TPEx"))
+        if cached_rows:
+            return jsonify({
+                "ok": True,
+                "data": cached_rows,
+                "count": len(cached_rows),
+                "cached": True,
+                "message": "資料來源暫時失敗，已沿用最近成功資料。",
+            })
+
+        return api_error(
+            "股票名單來源暫時無法連線，且目前沒有可用快取。",
+            503,
+            useCache=False,
+        )
+    except Exception as exc:
+        cached_rows = (_cache_last("TWSE") or _disk_last("TWSE")) + (_cache_last("TPEx") or _disk_last("TPEx"))
+        if cached_rows:
+            return jsonify({
+                "ok": True,
+                "data": cached_rows,
+                "count": len(cached_rows),
+                "cached": True,
+                "message": "伺服器暫時異常，已沿用最近成功資料。",
+            })
+        return api_error(
+            "股票名單服務暫時無法使用。",
+            503,
+            useCache=False,
+            detail=str(exc)[:160],
+        )
 
 
 @app.get("/api/institutional/status")

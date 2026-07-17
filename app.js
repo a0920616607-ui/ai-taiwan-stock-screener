@@ -156,29 +156,88 @@ window.switchReasonTab=function(key){
 
 
 async function fetchJsonSafe(url, options={}){
-  const response = await fetch(url, options);
-  const contentType = response.headers.get('content-type') || '';
-  const raw = await response.text();
+  const config={...options};
+  const retryCount=Number(config.retryCount ?? 3);
+  const retryDelays=Array.isArray(config.retryDelays) ? config.retryDelays : [1800,3500,7000];
+  const silent=Boolean(config.silent);
+  delete config.retryCount;
+  delete config.retryDelays;
+  delete config.silent;
 
-  if (!contentType.includes('application/json')) {
-    throw new Error('伺服器暫時回傳非資料頁面，請稍後重試。');
+  let lastError=null;
+
+  for(let attempt=0; attempt<=retryCount; attempt++){
+    try{
+      const controller=new AbortController();
+      const timeoutMs=Number(config.timeoutMs||45000);
+      delete config.timeoutMs;
+      const timer=setTimeout(()=>controller.abort(),timeoutMs);
+
+      let response;
+      try{
+        response=await fetch(url,{...config,signal:controller.signal});
+      }finally{
+        clearTimeout(timer);
+      }
+
+      const contentType=(response.headers.get('content-type')||'').toLowerCase();
+      const raw=await response.text();
+
+      if(!contentType.includes('application/json')){
+        const err=new Error(
+          response.status===502 || response.status===503
+            ? '雲端伺服器喚醒中'
+            : '伺服器暫時回傳非資料頁面'
+        );
+        err.retryable=true;
+        err.status=response.status;
+        throw err;
+      }
+
+      if(!raw || !raw.trim()){
+        const err=new Error('伺服器沒有回傳資料');
+        err.retryable=true;
+        err.status=response.status;
+        throw err;
+      }
+
+      let data;
+      try{
+        data=JSON.parse(raw);
+      }catch(_){
+        const err=new Error('伺服器資料格式暫時異常');
+        err.retryable=true;
+        err.status=response.status;
+        throw err;
+      }
+
+      if(!response.ok || data?.ok===false){
+        const err=new Error(data?.error || data?.message || `連線失敗（${response.status}）`);
+        err.retryable=[408,425,429,500,502,503,504].includes(response.status);
+        err.status=response.status;
+        err.data=data;
+        throw err;
+      }
+
+      return data;
+    }catch(error){
+      lastError=error?.name==='AbortError'
+        ? Object.assign(new Error('伺服器回應逾時'),{retryable:true})
+        : error;
+
+      const canRetry=attempt<retryCount && lastError?.retryable!==false;
+      if(!canRetry)break;
+
+      const delay=retryDelays[Math.min(attempt,retryDelays.length-1)] || 3000;
+      const status=document.getElementById('progressText');
+      if(status && !silent){
+        status.textContent=`伺服器喚醒中，第 ${attempt+1} 次重試…`;
+      }
+      await new Promise(resolve=>setTimeout(resolve,delay));
+    }
   }
 
-  if(!raw || !raw.trim()){
-    throw new Error('伺服器沒有回傳資料，請稍後再試。');
-  }
-
-  let data;
-  try{
-    data = JSON.parse(raw);
-  }catch(_){
-    throw new Error('伺服器資料格式錯誤，請稍後再試。');
-  }
-
-  if(!response.ok || data.ok === false){
-    throw new Error(data.error || `連線失敗（${response.status}）`);
-  }
-  return data;
+  throw lastError || new Error('暫時無法連線');
 }
 
 const $=s=>document.querySelector(s);
@@ -313,10 +372,26 @@ function saveGroups(){
  localStorage.setItem('v6-groups',JSON.stringify(groups));
  renderGroups();renderWatch();renderResults();
 }
+
+function setInlineScanMessage(message,type='info'){
+ const progressText=document.getElementById('progressText');
+ if(progressText)progressText.textContent=message;
+
+ const empty=document.getElementById('empty');
+ if(empty && type==='error'){
+  empty.style.display='block';
+  empty.textContent=message;
+ }
+}
+
+function hasSavedScanResults(){
+ return Array.isArray(results) && results.length>0;
+}
+
 async function syncUniverse(){
   $('#progressText').textContent='同步股票名單中…';
   try{
-    const d=await fetchJsonSafe('/api/universe');
+    const d=await fetchJsonSafe('/api/universe',{retryCount:3,retryDelays:[1800,3500,7000],timeoutMs:50000});
     const rows=Array.isArray(d) ? d : (Array.isArray(d.data) ? d.data : []);
     const oldRows=safeLoadUniverse();
     const oldTpex=oldRows.filter(x=>x.market==='TPEx');
@@ -341,7 +416,7 @@ async function syncUniverse(){
       $('#progressText').textContent=`同步暫時失敗，沿用已保存 ${universe.length} 檔資料`;
       return universe;
     }
-    $('#progressText').textContent='同步失敗';
+    $('#progressText').textContent='同步失敗，目前沒有可用的快取資料';
     throw err;
   }
 }
@@ -354,6 +429,9 @@ async function scanPage(){
  $('#empty').textContent='正在取得歷史行情、法人與主力代理指標…';
  try{
   const d=await fetchJsonSafe('/api/scan',{
+   retryCount:3,
+   retryDelays:[1800,3500,7000],
+   timeoutMs:60000,
    method:'POST',
    headers:{'Content-Type':'application/json'},
    body:JSON.stringify((()=>{
@@ -393,12 +471,14 @@ async function scanPage(){
   renderResults();
   renderWatch();
  }catch(e){
-  results=[];
+  // 連線暫時失敗時保留上次掃描結果，不清空畫面。
   renderResults();
-  $('#empty').style.display='block';
-  $('#empty').textContent=`掃描失敗：${e.message}`;
-  $('#progressText').textContent='掃描失敗';
-  alert(`掃描失敗：${e.message}`);
+  const cached=hasSavedScanResults() || allScannedResults.length>0;
+  const message=cached
+    ? `資料來源暫時失敗，已保留上次掃描結果：${e.message}`
+    : `掃描暫時失敗：${e.message}`;
+  setInlineScanMessage(message,'error');
+  $('#progressText').textContent=cached?'已沿用上次掃描資料':'掃描暫時失敗，請稍後再試';
  }finally{
   if(scanButton) scanButton.disabled=false;
  }
@@ -537,8 +617,18 @@ async function smartScan(){
   const seconds=((performance.now()-started)/1000).toFixed(1);
   setSmartScanState(false,'智慧選股掃描',`完成｜耗時 ${seconds} 秒｜已更新排行榜`);
  }catch(err){
-  setSmartScanState(false,'智慧選股掃描','掃描失敗，請再試一次');
-  alert(`智慧選股掃描失敗：${err.message}`);
+  const cached=hasSavedScanResults() || allScannedResults.length>0;
+  setSmartScanState(
+    false,
+    '智慧選股掃描',
+    cached?'資料來源暫時失敗，已保留上次結果':'掃描暫時失敗，請稍後再試'
+  );
+  setInlineScanMessage(
+    cached
+      ? `資料來源暫時失敗，已保留上次掃描結果：${err.message}`
+      : `智慧選股掃描暫時失敗：${err.message}`,
+    'error'
+  );
  }
 }
 
@@ -906,13 +996,13 @@ document.querySelectorAll('.match-mode-btn').forEach(btn=>btn.addEventListener('
  techMatchMode=btn.dataset.matchMode||'any';
  updateMatchModeUI();
 }));
-$('#prev').onclick=()=>{if(page>0){page--;scanPage().catch(e=>alert(e.message))}};
+$('#prev').onclick=()=>{if(page>0){page--;scanPage().catch(e=>setInlineScanMessage(e.message,'error'))}};
 $('#next').onclick=()=>{
  const market=document.getElementById('marketFilter')?.value||'all';
  const total=selectedMarketUniverse().length;
  if((page+1)*pageSize<total){
   page++;
-  scanPage().catch(e=>alert(e.message));
+  scanPage().catch(e=>setInlineScanMessage(e.message,'error'));
  }
 };
 $('#search').oninput=renderResults;
