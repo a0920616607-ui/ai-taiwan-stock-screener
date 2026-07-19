@@ -957,6 +957,15 @@ def analyze(code, name, period, inst):
     boll_width = boll_width_series[i]
     prev_boll_width = boll_width_series[p]
     boll_expanding = bool(boll_width is not None and prev_boll_width is not None and boll_width > prev_boll_width)
+
+    # V11：記錄昨日帶寬與連續收縮天數。
+    boll_contract_days = 0
+    for bi in range(i, 19, -1):
+        current_width = boll_width_series[bi]
+        prior_width = boll_width_series[bi - 1]
+        if current_width is None or prior_width is None or current_width >= prior_width:
+            break
+        boll_contract_days += 1
     boll_position = (
         "突破上軌" if boll_upper is not None and c[i] > boll_upper else
         "上半部" if boll_mid is not None and c[i] >= boll_mid else
@@ -1020,7 +1029,17 @@ def analyze(code, name, period, inst):
 
     vol6 = sma(v, 6) or 1
     vr = v[i] / vol6 if vol6 else 0
+    # V11 主升啟動量增：今日量大於「前 5 日」均量，避免把今日量納入均量稀釋訊號。
+    prev5_volume_avg = (sum(v[max(0, i-5):i]) / len(v[max(0, i-5):i])) if v[max(0, i-5):i] else 0
+    volume_ratio_prev5 = (v[i] / prev5_volume_avg) if prev5_volume_avg else 0
+    volume_increasing = bool(prev5_volume_avg and v[i] > prev5_volume_avg)
     price_change = ((c[i] / c[p]) - 1) * 100 if c[p] else 0
+
+    # V11「主升啟動」固定內含三條件：布林帶寬 <= 8%、量增、MACD(DIF)在零軸上。
+    macd_above_zero = bool(dif[i] > 0)
+    boll_squeeze_8 = bool(boll_width is not None and boll_width <= 8)
+    main_up_start = bool(boll_squeeze_8 and volume_increasing and macd_above_zero)
+    main_up_start_ema = bool(main_up_start and above_ema100)
 
     if vr >= 1.2 and price_change >= 0:
         bull_strength += 1
@@ -1270,6 +1289,9 @@ def analyze(code, name, period, inst):
         "bollUpper": round(boll_upper, 2) if boll_upper is not None else None,
         "bollLower": round(boll_lower, 2) if boll_lower is not None else None,
         "bollWidth": round(boll_width, 2) if boll_width is not None else None,
+        "prevBollWidth": round(prev_boll_width, 2) if prev_boll_width is not None else None,
+        "bollContractDays": boll_contract_days,
+        "bollSqueeze8": boll_squeeze_8,
         "bollExpanding": boll_expanding,
         "bollPosition": boll_position,
         "bollPositionScore": round(boll_position_score, 1) if boll_position_score is not None else None,
@@ -1282,6 +1304,11 @@ def analyze(code, name, period, inst):
         "emaSignalReasons": ema_signal_reasons,
         "emaChart": ema_chart,
         "volumeRatio": round(vr, 2),
+        "volumeRatioPrev5": round(volume_ratio_prev5, 2),
+        "volumeIncreasing": volume_increasing,
+        "MACDAboveZero": macd_above_zero,
+        "mainUpStart": main_up_start,
+        "mainUpStartEMA": main_up_start_ema,
         "status": status,
         "entry": "回測短期均線量縮止跌後分批" if ma5 and c[i] >= ma5 else "先等重新站回短期均線",
         "technicalReasons": technical_reasons,
