@@ -1048,103 +1048,61 @@ function renderStrengthLamps(selector, strength, type){
  ).join('');
 }
 
+function getEMAChartWithBollinger(stock){
+ const raw=Array.isArray(stock?.emaChart)?stock.emaChart:[];
+ const points=raw.filter(x=>Number.isFinite(Number(x.close))).map(x=>({...x}));
+ // 相容舊快取或部分 API 未附布林序列：直接用圖表收盤價補算 Bollinger Bands (20,2)。
+ // 不覆蓋後端已有的有效數值。
+ const closes=[];
+ points.forEach((p,i)=>{
+  const close=Number(p.close);closes.push(close);
+  if(i>=19){
+   const win=closes.slice(i-19,i+1);
+   const mid=win.reduce((a,b)=>a+b,0)/20;
+   const variance=win.reduce((a,b)=>a+(b-mid)*(b-mid),0)/20;
+   const sd=Math.sqrt(variance);
+   if(!Number.isFinite(Number(p.bollMid)))p.bollMid=mid;
+   if(!Number.isFinite(Number(p.bollUpper)))p.bollUpper=mid+2*sd;
+   if(!Number.isFinite(Number(p.bollLower)))p.bollLower=mid-2*sd;
+  }
+ });
+ return points;
+}
+
 function drawEMA100Chart(stock){
  const canvas=document.getElementById('emaSignalChart');
  if(!canvas)return;
-
- const raw=Array.isArray(stock?.emaChart)?stock.emaChart:[];
- // 只以收盤價判斷是否保留資料，避免 EMA 或布林其中一欄為空時整根資料被刪除。
- const points=raw.filter(x=>Number.isFinite(Number(x.close)));
+ const points=getEMAChartWithBollinger(stock);
  const wrap=canvas.parentElement;
  const width=Math.max(280,wrap?.clientWidth||320);
- const height=240;
+ const height=270;
  const ratio=Math.min(window.devicePixelRatio||1,2);
-
- canvas.width=Math.round(width*ratio);
- canvas.height=Math.round(height*ratio);
- canvas.style.width=`${width}px`;
- canvas.style.height=`${height}px`;
-
- const ctx=canvas.getContext('2d');
- ctx.setTransform(ratio,0,0,ratio,0,0);
- ctx.clearRect(0,0,width,height);
-
- if(points.length<2){
-  ctx.fillStyle='#9fb0c5';
-  ctx.font='14px sans-serif';
-  ctx.textAlign='center';
-  ctx.fillText('圖形資料不足',width/2,height/2);
-  return;
- }
-
- const pad={left:48,right:16,top:20,bottom:32};
- const numericKeys=['close','ema100','bollUpper','bollMid','bollLower'];
- const values=points.flatMap(p=>numericKeys.map(k=>Number(p[k]))).filter(Number.isFinite);
+ canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);
+ canvas.style.width=`${width}px`;canvas.style.height=`${height}px`;
+ const ctx=canvas.getContext('2d');ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,width,height);
+ if(points.length<2){ctx.fillStyle='#9fb0c5';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('圖形資料不足',width/2,height/2);return;}
+ const pad={left:48,right:68,top:20,bottom:34};
+ const keys=['close','ema100','bollUpper','bollMid','bollLower'];
+ const values=points.flatMap(p=>keys.map(k=>Number(p[k]))).filter(Number.isFinite);
  if(values.length<2)return;
- let min=Math.min(...values),max=Math.max(...values);
- const spread=Math.max(max-min,Math.abs(max)*0.02,1);
- min-=spread*0.12;
- max+=spread*0.12;
-
+ let min=Math.min(...values),max=Math.max(...values);const spread=Math.max(max-min,Math.abs(max)*.02,1);min-=spread*.12;max+=spread*.12;
  const x=i=>pad.left+(i/(points.length-1))*(width-pad.left-pad.right);
- const y=value=>pad.top+(max-value)/(max-min)*(height-pad.top-pad.bottom);
-
- ctx.strokeStyle='rgba(130,160,190,.18)';
- ctx.lineWidth=1;
- ctx.fillStyle='#8ca2ba';
- ctx.font='11px sans-serif';
- ctx.textAlign='right';
- for(let n=0;n<=4;n++){
-  const yy=pad.top+n*(height-pad.top-pad.bottom)/4;
-  const val=max-n*(max-min)/4;
-  ctx.beginPath();ctx.moveTo(pad.left,yy);ctx.lineTo(width-pad.right,yy);ctx.stroke();
-  ctx.fillText(val.toFixed(2),pad.left-7,yy+4);
- }
-
- // 布林帶填色：逐段處理，遇到 null/NaN 僅中斷該段，不讓整條通道消失。
- const segments=[]; let segment=[];
- points.forEach((p,i)=>{
-  const upper=Number(p.bollUpper),lower=Number(p.bollLower);
-  if(Number.isFinite(upper)&&Number.isFinite(lower)) segment.push({i,upper,lower});
-  else if(segment.length){segments.push(segment);segment=[];}
- });
- if(segment.length)segments.push(segment);
- segments.filter(seg=>seg.length>=2).forEach(seg=>{
-  ctx.beginPath();
-  seg.forEach((v,j)=>j?ctx.lineTo(x(v.i),y(v.upper)):ctx.moveTo(x(v.i),y(v.upper)));
-  [...seg].reverse().forEach(v=>ctx.lineTo(x(v.i),y(v.lower)));
-  ctx.closePath();ctx.fillStyle='rgba(170,130,255,.10)';ctx.fill();
- });
-
- const drawOptionalLine=(key,stroke,lineWidth,dash=[])=>{
-  const valid=points.filter(p=>Number.isFinite(Number(p[key])));
-  if(valid.length<2)return false;
-  ctx.save();ctx.setLineDash(dash);ctx.beginPath();let started=false;
-  points.forEach((p,i)=>{
-   const value=Number(p[key]);
-   if(!Number.isFinite(value)){started=false;return;}
-   if(!started){ctx.moveTo(x(i),y(value));started=true;}else ctx.lineTo(x(i),y(value));
-  });
-  ctx.strokeStyle=stroke;ctx.lineWidth=lineWidth;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();ctx.restore();
-  return true;
- };
-
- const hasBollUpper=drawOptionalLine('bollUpper','rgba(177,137,255,.95)',1.6);
- drawOptionalLine('bollMid','rgba(177,137,255,.72)',1.2,[6,4]);
- const hasBollLower=drawOptionalLine('bollLower','rgba(177,137,255,.95)',1.6);
- drawOptionalLine('ema100','#ffb84d',2.2);
- drawOptionalLine('close','#27c8ff',2.6);
-
- const last=points[points.length-1];
- const lastX=x(points.length-1);
- const close=Number(last.close),ema=Number(last.ema100);
- if(Number.isFinite(close)){ctx.fillStyle='#27c8ff';ctx.beginPath();ctx.arc(lastX,y(close),4.5,0,Math.PI*2);ctx.fill();}
- if(Number.isFinite(ema)){ctx.fillStyle='#ffb84d';ctx.beginPath();ctx.arc(lastX,y(ema),4,0,Math.PI*2);ctx.fill();}
-
- if(!hasBollUpper||!hasBollLower){
-  ctx.fillStyle='rgba(210,220,235,.82)';ctx.font='11px sans-serif';ctx.textAlign='left';
-  ctx.fillText('布林資料不足（需至少20筆）',pad.left,height-8);
- }
+ const y=v=>pad.top+(max-v)/(max-min)*(height-pad.top-pad.bottom);
+ ctx.strokeStyle='rgba(130,160,190,.18)';ctx.lineWidth=1;ctx.fillStyle='#8ca2ba';ctx.font='11px sans-serif';ctx.textAlign='right';
+ for(let n=0;n<=4;n++){const yy=pad.top+n*(height-pad.top-pad.bottom)/4;const val=max-n*(max-min)/4;ctx.beginPath();ctx.moveTo(pad.left,yy);ctx.lineTo(width-pad.right,yy);ctx.stroke();ctx.fillText(val.toFixed(2),pad.left-7,yy+4);}
+ const segs=[];let seg=[];
+ points.forEach((p,i)=>{const u=Number(p.bollUpper),l=Number(p.bollLower);if(Number.isFinite(u)&&Number.isFinite(l))seg.push({i,u,l});else if(seg.length){segs.push(seg);seg=[];}});if(seg.length)segs.push(seg);
+ segs.filter(a=>a.length>=2).forEach(a=>{ctx.beginPath();a.forEach((v,j)=>j?ctx.lineTo(x(v.i),y(v.u)):ctx.moveTo(x(v.i),y(v.u)));[...a].reverse().forEach(v=>ctx.lineTo(x(v.i),y(v.l)));ctx.closePath();ctx.fillStyle='rgba(170,130,255,.10)';ctx.fill();});
+ const drawLine=(key,stroke,w,dash=[])=>{let count=0,started=false;ctx.save();ctx.setLineDash(dash);ctx.beginPath();points.forEach((p,i)=>{const v=Number(p[key]);if(!Number.isFinite(v)){started=false;return;}count++;if(!started){ctx.moveTo(x(i),y(v));started=true;}else ctx.lineTo(x(i),y(v));});if(count>=2){ctx.strokeStyle=stroke;ctx.lineWidth=w;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();}ctx.restore();return count>=2;};
+ const hasU=drawLine('bollUpper','rgba(177,137,255,.95)',1.6);drawLine('bollMid','rgba(177,137,255,.75)',1.2,[6,4]);const hasL=drawLine('bollLower','rgba(177,137,255,.95)',1.6);drawLine('ema100','#ffb84d',2.2);drawLine('close','#27c8ff',2.6);
+ const last=points[points.length-1],lastX=x(points.length-1);
+ const labels=[['close','股價','#27c8ff'],['ema100','EMA','#ffb84d'],['bollUpper','上軌','rgba(190,155,255,1)'],['bollMid','中軌','rgba(190,155,255,.9)'],['bollLower','下軌','rgba(190,155,255,1)']]
+  .map(([k,t,c])=>({v:Number(last[k]),t,c})).filter(o=>Number.isFinite(o.v)).sort((a,b)=>a.v-b.v);
+ // 避免右側數字互相重疊。
+ const minGap=14;labels.forEach((o,i)=>{o.yy=y(o.v);if(i&&o.yy>labels[i-1].yy-minGap)o.yy=labels[i-1].yy-minGap;});
+ labels.forEach(o=>{ctx.fillStyle=o.c;ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText(`${o.t} ${o.v.toFixed(2)}`,width-pad.right+7,Math.max(12,Math.min(height-8,o.yy+4)));});
+ const close=Number(last.close),ema=Number(last.ema100);if(Number.isFinite(close)){ctx.fillStyle='#27c8ff';ctx.beginPath();ctx.arc(lastX,y(close),4.5,0,Math.PI*2);ctx.fill();}if(Number.isFinite(ema)){ctx.fillStyle='#ffb84d';ctx.beginPath();ctx.arc(lastX,y(ema),4,0,Math.PI*2);ctx.fill();}
+ if(!hasU||!hasL){ctx.fillStyle='rgba(210,220,235,.82)';ctx.font='11px sans-serif';ctx.textAlign='left';ctx.fillText(`布林資料不足（目前 ${points.length} 筆，需20筆）`,pad.left,height-8);}
 }
 
 function renderEMA100Signal(stock){
