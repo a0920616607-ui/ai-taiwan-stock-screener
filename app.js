@@ -729,6 +729,11 @@ function filteredResults(){
    above_ema100:()=>Boolean(x.aboveEMA100)||(ema100>0&&close>ema100),
    ema100_rising:()=>Boolean(x.EMA100Rising),
    ema100_macd:()=>Boolean(x.EMA100MACDStrategy),
+   boll_upper:()=>Number(x.bollPositionScore)>=8,
+   boll_slope_up:()=>Number(x.bollSlopePct)>0,
+   boll_open_up:()=>Boolean(x.bollExpanding)&&Number(x.bollPositionScore)>=0,
+   foreign_buy:()=>Boolean(x.institutionalAvailable)&&Number(x.foreignNet)>0,
+   trust_buy:()=>Boolean(x.institutionalAvailable)&&Number(x.trustNet)>0,
    buy:()=>signal.type==='buy',
 
    macd_bear:()=>macd<macdSignal||macd<0||hasReason(x,'MACD 柱體為負')||hasReason(x,'MACD 動能轉弱'),
@@ -739,6 +744,9 @@ function filteredResults(){
    below_ema100:()=>Boolean(ema100>0&&close<ema100)||!Boolean(x.aboveEMA100),
    ema100_falling:()=>x.EMA100Rising===false,
    ema100_macd_bear:()=>Boolean(ema100>0&&close<ema100&&macd<macdSignal),
+   boll_lower:()=>Number(x.bollPositionScore)<=-8,
+   boll_slope_down:()=>Number(x.bollSlopePct)<0,
+   foreign_sell:()=>Boolean(x.institutionalAvailable)&&Number(x.foreignNet)<0,
    sell:()=>signal.type==='sell'
   };
 
@@ -1311,7 +1319,8 @@ async function refreshInstitutionalStatus(){
   const total=Number(d.records||0);
   const twse=Number(d.twseCount||0);
   const tpex=Number(d.tpexCount||0);
-  el.textContent=`法人資料：官方 ${total.toLocaleString()} 檔（上市 ${twse}／上櫃 ${tpex}）`;
+  const dates=[d.twseDate,d.tpexDate].filter(Boolean).join('／');
+  el.textContent=`法人資料：${d.fallback?'沿用最近交易日':'官方'} ${total.toLocaleString()} 檔（上市 ${twse}／上櫃 ${tpex}）${dates?'｜日期 '+dates:''}`;
   el.className=total>0?'official-status ok':'official-status warn';
  }catch(e){
   el.textContent='法人資料：暫時無法取得';

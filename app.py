@@ -15,7 +15,8 @@ TPEX_DAILY_FALLBACKS = [
     "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php",
 ]
 TPEX_INST = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"
-UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/6.2)"}
+UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/10.0)"}
+INST_CACHE_FILE = os.path.join(os.path.dirname(__file__), "institutional_last_good.json")
 
 import time
 
@@ -341,6 +342,25 @@ def all_universe():
 
 _INST_CACHE = {"key": None, "data": {}, "meta": {}}
 
+def _load_last_good_institutional():
+    try:
+        with open(INST_CACHE_FILE, "r", encoding="utf-8") as fh:
+            payload = json.load(fh)
+        data = payload.get("data") if isinstance(payload, dict) else {}
+        meta = payload.get("meta") if isinstance(payload, dict) else {}
+        return (data if isinstance(data, dict) else {}), (meta if isinstance(meta, dict) else {})
+    except Exception:
+        return {}, {}
+
+def _save_last_good_institutional(data, meta):
+    if not data:
+        return
+    try:
+        with open(INST_CACHE_FILE, "w", encoding="utf-8") as fh:
+            json.dump({"savedAt": _today_taipei().isoformat(), "data": data, "meta": meta}, fh, ensure_ascii=False)
+    except Exception:
+        pass
+
 def _clean_key(value):
     return re.sub(r"[\s（）()／/、，,_\-]", "", str(value or "")).lower()
 
@@ -551,10 +571,19 @@ def institutional_map(force=False):
     twse, twse_meta = _fetch_twse_institutional()
     tpex, tpex_meta = _fetch_tpex_institutional()
     merged = {**twse, **tpex}
+    meta = {**twse_meta, **tpex_meta, "fallback": False}
+
+    # 假日或官方端點暫時空白時，沿用最近一次成功資料，避免把缺資料誤顯示成 0 股。
+    if not merged:
+        merged, saved_meta = _load_last_good_institutional()
+        if merged:
+            meta = {**saved_meta, "fallback": True, "fallbackReason": "官方假日／暫時無資料，沿用最近交易日"}
+    else:
+        _save_last_good_institutional(merged, meta)
 
     _INST_CACHE["key"] = cache_key
     _INST_CACHE["data"] = merged
-    _INST_CACHE["meta"] = {**twse_meta, **tpex_meta}
+    _INST_CACHE["meta"] = meta
     return merged
 
 
@@ -763,6 +792,22 @@ def analyze(code, name, period, inst):
         "上半部" if boll_mid is not None and c[i] >= boll_mid else
         "跌破下軌" if boll_lower is not None and c[i] < boll_lower else
         "下半部"
+    )
+    # 位階：下軌=-10、中軌=0、上軌=+10；突破時容許延伸至 ±12。
+    boll_position_score = None
+    if boll_upper is not None and boll_lower is not None and boll_upper > boll_lower:
+        boll_position_score = ((c[i] - boll_mid) / ((boll_upper - boll_lower) / 2)) * 10
+        boll_position_score = max(-12, min(12, boll_position_score))
+    # 月斜：布林中軌(20MA)近 5 根的標準化斜率，換算為百分比，跨股價可比較。
+    boll_slope_pct = None
+    if i >= 5 and boll_mid_series[i] not in (None, 0) and boll_mid_series[i-5] is not None:
+        boll_slope_pct = ((boll_mid_series[i] - boll_mid_series[i-5]) / boll_mid_series[i-5]) * 100
+    boll_slope_state = (
+        "強多" if boll_slope_pct is not None and boll_slope_pct >= 3 else
+        "偏多" if boll_slope_pct is not None and boll_slope_pct > 0 else
+        "強空" if boll_slope_pct is not None and boll_slope_pct <= -3 else
+        "偏空" if boll_slope_pct is not None and boll_slope_pct < 0 else
+        "中性"
     )
 
     ema_distance_pct = (
@@ -1050,6 +1095,11 @@ def analyze(code, name, period, inst):
         "bollWidth": round(boll_width, 2) if boll_width is not None else None,
         "bollExpanding": boll_expanding,
         "bollPosition": boll_position,
+        "bollPositionScore": round(boll_position_score, 1) if boll_position_score is not None else None,
+        "bollSlopePct": round(boll_slope_pct, 2) if boll_slope_pct is not None else None,
+        "bollSlopeState": boll_slope_state,
+        "priceDataDate": rows[-1]["date"],
+        "volumeDataDate": rows[-1]["date"],
         "bullStrength": bull_strength,
         "bearStrength": bear_strength,
         "emaSignalReasons": ema_signal_reasons,
@@ -1256,7 +1306,7 @@ def institutional_status():
         "ok": True,
         "records": len(data),
         "sample": list(data.items())[:3],
-        "message": "法人資料來自 TWSE T86 與 TPEx OpenAPI；無資料時不以 0 冒充。"
+        "message": "法人資料來自 TWSE T86 與 TPEx OpenAPI；假日或官方暫時空白時沿用最近成功交易日，不以 0 冒充。"
     })
     return jsonify(meta)
 
