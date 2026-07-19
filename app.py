@@ -25,8 +25,8 @@ TPEX_DAILY_FALLBACKS = [
     "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php",
 ]
 TPEX_INST = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"
-UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/10.4)"}
-INST_CACHE_FILE = os.path.join(os.path.dirname(__file__), "institutional_last_good_v107.json")
+UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/10.8)"}
+INST_CACHE_FILE = os.path.join(os.path.dirname(__file__), "institutional_last_good_v108.json")
 
 import time
 
@@ -398,6 +398,27 @@ def _find_value(row, include_terms, exclude_terms=()):
             return value
     return None
 
+def _find_value_any(row, aliases, exclude_terms=()):
+    """Match any complete alias against normalized official column names."""
+    normalized = [tuple(_clean_key(t) for t in alias) for alias in aliases]
+    for key, value in row.items():
+        nk = _clean_key(key)
+        if any(all(term in nk for term in alias) for alias in normalized) and not any(
+            _clean_key(term) in nk for term in exclude_terms
+        ):
+            if str(value).strip() != "":
+                return value
+    return None
+
+def _component_from_aliases(row, net_aliases, buy_aliases=(), sell_aliases=(), exclude_terms=()):
+    direct = _find_value_any(row, net_aliases, exclude_terms)
+    if direct is not None:
+        return direct
+    buy = _find_value_any(row, buy_aliases, exclude_terms) if buy_aliases else None
+    sell = _find_value_any(row, sell_aliases, exclude_terms) if sell_aliases else None
+    b, s = num(buy), num(sell)
+    return b - s if b is not None and s is not None else None
+
 def _today_taipei():
     return datetime.utcnow() + timedelta(hours=8)
 
@@ -552,46 +573,32 @@ def _fetch_twse_institutional():
                 if not re.fullmatch(r"\d{4}", code):
                     continue
 
-                foreign = _component_from_row(
+                foreign = _component_from_aliases(
                     row,
-                    ["外陸資", "買賣超"],
-                    ["外陸資", "買進"],
-                    ["外陸資", "賣出"],
+                    [("外陸資", "買賣超"), ("外資及陸資", "買賣超"), ("外資", "買賣超")],
+                    [("外陸資", "買進"), ("外資及陸資", "買進"), ("外資", "買進")],
+                    [("外陸資", "賣出"), ("外資及陸資", "賣出"), ("外資", "賣出")],
                     ["外資自營商"],
                 )
-                if foreign is None:
-                    foreign = _component_from_row(
-                        row, ["外資", "買賣超"], ["外資", "買進"], ["外資", "賣出"], ["自營商"]
-                    )
-
-                trust = _component_from_row(
-                    row, ["投信", "買賣超"], ["投信", "買進"], ["投信", "賣出"]
+                trust = _component_from_aliases(
+                    row, [("投信", "買賣超")], [("投信", "買進")], [("投信", "賣出")]
                 )
-
-                dealer_self = _component_from_row(
+                dealer_self = _component_from_aliases(
                     row,
-                    ["自營商", "自行買賣", "買賣超"],
-                    ["自營商", "自行買賣", "買進"],
-                    ["自營商", "自行買賣", "賣出"],
+                    [("自營商", "自行買賣", "買賣超")],
+                    [("自營商", "自行買賣", "買進")],
+                    [("自營商", "自行買賣", "賣出")],
                 )
-                dealer_hedge = _component_from_row(
+                dealer_hedge = _component_from_aliases(
                     row,
-                    ["自營商", "避險", "買賣超"],
-                    ["自營商", "避險", "買進"],
-                    ["自營商", "避險", "賣出"],
+                    [("自營商", "避險", "買賣超")],
+                    [("自營商", "避險", "買進")],
+                    [("自營商", "避險", "賣出")],
                 )
-                dealer_total = _find_value(
-                    row,
-                    ["自營商", "買賣超"],
-                    ["自行買賣", "避險"],
-                )
-                dealer = (
-                    (num(dealer_self) or 0) + (num(dealer_hedge) or 0)
-                    if dealer_self is not None or dealer_hedge is not None
-                    else dealer_total
-                )
-
-                total = _find_value(row, ["三大法人", "買賣超"])
+                dealer_direct = _find_value_any(row, [("自營商", "買賣超")], ["自行買賣", "避險"])
+                dealer = ((num(dealer_self) or 0) + (num(dealer_hedge) or 0)) \
+                    if dealer_self is not None or dealer_hedge is not None else dealer_direct
+                total = _find_value_any(row, [("三大法人", "買賣超"), ("三大法人合計", "買賣超")])
                 out[code] = _normalize_inst_record(
                     code, foreign, trust, dealer, total,
                     "TWSE", date_str, "TWSE T86"
@@ -1421,7 +1428,7 @@ def api_sector_members():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V10.7", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V10.8", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
@@ -1574,6 +1581,20 @@ def scan():
         })
     except Exception as e:
         return jsonify(ok=False, error=str(e)), 502
+
+@app.get("/api/institutional/<code>")
+def institutional_detail(code):
+    code = str(code).strip()
+    if not re.fullmatch(r"\d{4}", code):
+        return api_error("股票代號需為 4 碼", 400)
+    data = institutional_map(force=str(request.args.get("refresh", "0")) == "1")
+    rec = data.get(code)
+    if not rec:
+        return jsonify(ok=True, code=code, result={
+            "institutionalAvailable": False, "institutionalDataStatus": "官方無資料或尚未發布",
+            "foreignNet": None, "trustNet": None, "dealerNet": None, "institutionalNet": None
+        })
+    return jsonify(ok=True, code=code, result=rec)
 
 @app.get("/api/stock/<code>")
 def stock_detail(code):

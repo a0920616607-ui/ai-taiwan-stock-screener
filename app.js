@@ -1438,14 +1438,14 @@ window.openWatchStockAnalysis=async function(code,button=null){
   if(status)status.innerHTML='<span class="mini-spinner"></span>分析中…';
  }
  try{
-  let stock=results.find(v=>v.code===code)||allScannedResults.find(v=>v.code===code);
-  if(!stock){
-   stock=await analyzeSingleStock(code,singlePeriod);
-   if(!stock)throw new Error('分析失敗');
-   mergeRankingRows([stock]);
-   if(!results.some(x=>x.code===stock.code))results.push(stock);
-   renderRanking();
-  }
+  // V10.8：自選股每次點開都重新呼叫單股分析，避免沿用加入時的舊法人資料。
+  const stock=await analyzeSingleStock(code,singlePeriod);
+  if(!stock)throw new Error('分析失敗');
+  mergeRankingRows([stock]);
+  const idx=results.findIndex(x=>x.code===stock.code);
+  if(idx>=0) results[idx]=stock; else results.push(stock);
+  renderRanking();
+  renderWatch();
   if(btn){
    btn.classList.remove('analyzing');
    btn.classList.add('done');
