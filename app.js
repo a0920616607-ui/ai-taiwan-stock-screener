@@ -317,11 +317,33 @@ function loadRankingHistory(){
  }catch(e){return {};}
 }
 
+function rankingTimestamp(item,index=0){
+ const raw=item?.updatedAt||item?.analyzedAt||item?.savedAt||item?.timestamp||item?.time;
+ const parsed=raw?Date.parse(raw):NaN;
+ return Number.isFinite(parsed)?parsed:index;
+}
+
+// AI 排行榜以股票代號去重，只保留最後一次分析結果；
+// 分數只負責去重後的排序，不再保留較舊的歷史高分。
+function dedupeLatestRankingRows(rows){
+ const latest=new Map();
+ (Array.isArray(rows)?rows:[]).forEach((item,index)=>{
+  if(!item?.code)return;
+  const key=String(item.code);
+  const candidate={...item,__rankingOrder:index};
+  const current=latest.get(key);
+  if(!current || rankingTimestamp(candidate,index)>=rankingTimestamp(current,current.__rankingOrder??0)){
+   latest.set(key,candidate);
+  }
+ });
+ return [...latest.values()].map(({__rankingOrder,...item})=>item);
+}
+
 function saveDailyRankingSnapshot(){
  try{
   const history=loadRankingHistory();
   const key=rankingDayKey();
-  history[key]=[...allScannedResults]
+  history[key]=dedupeLatestRankingRows(allScannedResults)
    .sort((a,b)=>Number(b.aiScore??b.score??0)-Number(a.aiScore??a.score??0))
    .slice(0,100)
    .map(x=>({
@@ -329,6 +351,7 @@ function saveDailyRankingSnapshot(){
     close:x.close,change:x.change,changePct:x.changePct,
     aiScore:Number(x.aiScore??x.score??0),
     signal:x.signal,status:x.status,
+    updatedAt:x.updatedAt||x.analyzedAt||x.savedAt||new Date().toISOString(),
     savedAt:new Date().toISOString()
    }));
   const keys=Object.keys(history).sort().slice(-30);
@@ -351,8 +374,8 @@ function renderRankingDateOptions(){
 
 function selectedRankingRows(){
  const date=document.getElementById('rankingDate')?.value||'latest';
- if(date==='latest')return [...allScannedResults];
- return [...(loadRankingHistory()[date]||[])];
+ if(date==='latest')return dedupeLatestRankingRows(allScannedResults);
+ return dedupeLatestRankingRows(loadRankingHistory()[date]||[]);
 }
 
 function rankingPreviousScore(code,dateKey){
@@ -379,7 +402,7 @@ function rankingStreak(code,currentScore){
 function safeLoadRanking(){
  try{
   const rows=JSON.parse(localStorage.getItem('v85-ranking')||localStorage.getItem('v844-ranking')||'[]');
-  return Array.isArray(rows)?rows:[];
+  return dedupeLatestRankingRows(Array.isArray(rows)?rows:[]);
  }catch(e){
   return [];
  }
@@ -387,19 +410,24 @@ function safeLoadRanking(){
 
 function saveRanking(){
  try{
-  localStorage.setItem('v85-ranking',JSON.stringify(allScannedResults.slice(0,300))); saveDailyRankingSnapshot();
+  allScannedResults=dedupeLatestRankingRows(allScannedResults)
+   .sort((a,b)=>Number(b.aiScore??b.score??0)-Number(a.aiScore??a.score??0))
+   .slice(0,300);
+  localStorage.setItem('v85-ranking',JSON.stringify(allScannedResults));
+  saveDailyRankingSnapshot();
  }catch(e){}
 }
 
 function mergeRankingRows(rows){
- const merged=new Map();
- for(const item of allScannedResults){
-  if(item?.code)merged.set(`${item.code}:${item.period||'day'}`,item);
- }
- for(const item of (Array.isArray(rows)?rows:[])){
-  if(item?.code)merged.set(`${item.code}:${item.period||period}`,item);
- }
- allScannedResults=[...merged.values()]
+ const now=Date.now();
+ const existing=dedupeLatestRankingRows(allScannedResults);
+ const incoming=(Array.isArray(rows)?rows:[]).map((item,index)=>({
+  ...item,
+  period:item.period||period,
+  // 同一輪資料也保留明確順序；後分析的資料會覆蓋前一筆。
+  updatedAt:new Date(now+index).toISOString()
+ }));
+ allScannedResults=dedupeLatestRankingRows([...existing,...incoming])
   .sort((a,b)=>Number(b.aiScore??b.score??0)-Number(a.aiScore??a.score??0))
   .slice(0,300);
  saveRanking();
