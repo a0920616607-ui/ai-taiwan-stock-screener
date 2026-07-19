@@ -26,7 +26,7 @@ TPEX_DAILY_FALLBACKS = [
 ]
 TPEX_INST = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"
 UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/10.4)"}
-INST_CACHE_FILE = os.path.join(os.path.dirname(__file__), "institutional_last_good_v104.json")
+INST_CACHE_FILE = os.path.join(os.path.dirname(__file__), "institutional_last_good_v107.json")
 
 import time
 
@@ -521,14 +521,26 @@ def _fetch_twse_institutional():
             )
             r.raise_for_status()
             payload = r.json()
-            # TWSE rwd API may return fields/data at the root or inside tables[0].
+            # TWSE rwd API may return several tables. Select the detailed stock table,
+            # not the first non-empty summary table.
             table = {}
             if isinstance(payload, dict):
                 tables = payload.get("tables") or []
                 if isinstance(tables, list):
-                    table = next((t for t in tables if isinstance(t, dict) and t.get("data")), {})
-            fields = (payload.get("fields") if isinstance(payload, dict) else None) or table.get("fields") or []
-            data = (payload.get("data") if isinstance(payload, dict) else None) or table.get("data") or []
+                    candidates = [t for t in tables if isinstance(t, dict) and t.get("data")]
+                    def table_score(t):
+                        joined = "|".join(str(x.get("title") if isinstance(x, dict) else x) for x in (t.get("fields") or []))
+                        return sum(token in joined for token in ("證券代號", "外陸資", "投信", "自營商", "三大法人"))
+                    table = max(candidates, key=table_score, default={})
+            root_fields = payload.get("fields") if isinstance(payload, dict) else None
+            root_data = payload.get("data") if isinstance(payload, dict) else None
+            # Use root only when it is also a detailed stock table.
+            root_joined = "|".join(str(x.get("title") if isinstance(x, dict) else x) for x in (root_fields or []))
+            if root_data and "證券代號" in root_joined:
+                fields, data = root_fields or [], root_data or []
+            else:
+                fields, data = table.get("fields") or [], table.get("data") or []
+            fields = [f.get("title") if isinstance(f, dict) else str(f) for f in fields]
             stat = str((payload.get("stat") if isinstance(payload, dict) else "") or table.get("stat") or "")
             if not data or ("很抱歉" in stat):
                 continue
@@ -1409,7 +1421,7 @@ def api_sector_members():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V10.6", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V10.7", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
@@ -1480,29 +1492,19 @@ def scan():
     client_total = max(0, int(body.get("clientTotal", 0) or 0))
 
     try:
-        # V10.6: mixed mode is built from two independent market lists on the server.
+        # V10.7: mixed mode is built from two independent market lists on the server.
         # This guarantees each page contains both TWSE and TPEx when both sources are available.
         if market == "all":
             twse_rows = sorted(twse_universe() or _cache_last("TWSE") or _disk_last("TWSE"), key=lambda x: str(x.get("code", "")))
             tpex_rows = sorted(tpex_universe() or _cache_last("TPEx") or _disk_last("TPEx"), key=lambda x: str(x.get("code", "")))
-            half_twse = (limit + 1) // 2
-            half_tpex = limit // 2
             page_index = offset // limit if limit else 0
-            a = twse_rows[page_index * half_twse: page_index * half_twse + half_twse]
-            b = tpex_rows[page_index * half_tpex: page_index * half_tpex + half_tpex]
-            batch = []
-            for i in range(max(len(a), len(b))):
-                if i < len(a): batch.append(a[i])
-                if i < len(b): batch.append(b[i])
-            # If one market has ended, fill the remaining slots from the other market.
-            if len(batch) < limit:
-                combined = twse_rows + tpex_rows
-                used = {str(x.get("market"))+str(x.get("code")) for x in batch}
-                for x in combined:
-                    key = str(x.get("market"))+str(x.get("code"))
-                    if key not in used:
-                        batch.append(x); used.add(key)
-                    if len(batch) >= limit: break
+            # Analyse one full page from EACH market. After analysis, select a balanced
+            # top-score page. This prevents technical filters from making mixed mode look
+            # like a single-market scan while preserving descending score order.
+            per_market = limit
+            a = twse_rows[page_index * per_market: page_index * per_market + per_market]
+            b = tpex_rows[page_index * per_market: page_index * per_market + per_market]
+            batch = a + b
             effective_total = len(twse_rows) + len(tpex_rows)
         else:
             uni = twse_universe() if market == "TWSE" else tpex_universe()
@@ -1532,6 +1534,26 @@ def scan():
                     })
 
         results.sort(key=lambda x: x["score"], reverse=True)
+        analyzed_counts = {
+            "TWSE": sum(1 for x in results if x.get("market") == "TWSE"),
+            "TPEx": sum(1 for x in results if x.get("market") == "TPEx"),
+        }
+        if market == "all":
+            quota_twse = (limit + 1) // 2
+            quota_tpex = limit // 2
+            twse_ok = [x for x in results if x.get("market") == "TWSE"]
+            tpex_ok = [x for x in results if x.get("market") == "TPEx"]
+            selected_results = twse_ok[:quota_twse] + tpex_ok[:quota_tpex]
+            selected_keys = {(x.get("market"), x.get("code")) for x in selected_results}
+            for x in results:
+                if len(selected_results) >= limit:
+                    break
+                if (x.get("market"), x.get("code")) not in selected_keys:
+                    selected_results.append(x)
+                    selected_keys.add((x.get("market"), x.get("code")))
+            results = sorted(selected_results, key=lambda x: x["score"], reverse=True)
+        else:
+            results = results[:limit]
         return jsonify({
             "ok": True,
             "period": period,
@@ -1541,6 +1563,8 @@ def scan():
             "limit": limit,
             "total": effective_total,
             "processed": len(batch),
+            "analyzedMarketCounts": analyzed_counts,
+            "sourceMarketCounts": {"TWSE": len(twse_rows) if market == "all" else (len(uni) if market == "TWSE" else 0), "TPEx": len(tpex_rows) if market == "all" else (len(uni) if market == "TPEx" else 0)},
             "successCount": len(results),
             "errorCount": len(errors),
             "nextOffset": offset + len(batch),
