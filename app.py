@@ -1409,7 +1409,7 @@ def api_sector_members():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V10.5", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V10.6", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
@@ -1480,7 +1480,7 @@ def scan():
     client_total = max(0, int(body.get("clientTotal", 0) or 0))
 
     try:
-        # V10.5: mixed mode is built from two independent market lists on the server.
+        # V10.6: mixed mode is built from two independent market lists on the server.
         # This guarantees each page contains both TWSE and TPEx when both sources are available.
         if market == "all":
             twse_rows = sorted(twse_universe() or _cache_last("TWSE") or _disk_last("TWSE"), key=lambda x: str(x.get("code", "")))

@@ -265,7 +265,43 @@ async function fetchJsonSafe(url, options={}){
 
 const $=s=>document.querySelector(s);
 let universe=safeLoadUniverse(),results=[],allScannedResults=safeLoadRanking(),period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
+let scanPool=[];
+let loadedScanPages=new Set();
+let scanContextKey='';
 
+
+
+function currentScanContextKey(){
+ const market=document.getElementById('marketFilter')?.value||'all';
+ return `${market}:${period}:${scanDirection}:${techMatchMode}`;
+}
+
+function resetScanPool(){
+ scanPool=[];
+ loadedScanPages=new Set();
+ scanContextKey=currentScanContextKey();
+ results=[];
+}
+
+function mergeIntoScanPool(rows){
+ const merged=new Map(scanPool.map(x=>[`${x.market||''}:${x.code}`,x]));
+ for(const x of (Array.isArray(rows)?rows:[])){
+  if(x?.code) merged.set(`${x.market||''}:${x.code}`,x);
+ }
+ scanPool=[...merged.values()].sort((a,b)=>
+  Number(b.aiScore??b.score??0)-Number(a.aiScore??a.score??0) ||
+  String(a.code).localeCompare(String(b.code))
+ );
+}
+
+function showSortedScanPage(){
+ const start=page*pageSize;
+ results=scanPool.slice(start,start+pageSize);
+ renderResults();
+ const totalPages=Math.max(1,Math.ceil(scanPool.length/pageSize));
+ const label=document.getElementById('pageLabel');
+ if(label) label.textContent=`第 ${page+1} 頁 / ${totalPages} 頁（已掃描結果依分數排序）`;
+}
 
 function rankingDayKey(date=new Date()){
  const y=date.getFullYear();
@@ -475,18 +511,21 @@ async function scanPage(){
    })())
   });
 
-  results=Array.isArray(d.results)?d.results:[];
-  mergeRankingRows(results);
+  const pageRows=Array.isArray(d.results)?d.results:[];
+  mergeIntoScanPool(pageRows);
+  loadedScanPages.add(page);
+  showSortedScanPage();
+  mergeRankingRows(pageRows);
   renderRanking();
   $('#progress').value=100;
   $('#scanned').textContent=Math.min((page+1)*pageSize,d.total||0);
-  $('#high').textContent=results.filter(x=>x.score>=80).length;
-  if($('#match')) if($('#match')) $('#match').textContent=results.filter(x=>x.score>=65).length;
+  $('#high').textContent=scanPool.filter(x=>Number(x.aiScore??x.score??0)>=80).length;
+  if($('#match')) $('#match').textContent=scanPool.filter(x=>Number(x.aiScore??x.score??0)>=65).length;
   $('#dataDate').textContent=`資料：${d.date||'—'}`;
-  $('#progressText').textContent=`第 ${page+1} 頁完成：成功 ${d.successCount||0}，失敗 ${d.errorCount||0}`;
-  $('#pageLabel').textContent=`第 ${page+1} 頁 / ${Math.max(1,Math.ceil((d.total||0)/pageSize))} 頁`;
+  $('#progressText').textContent=`第 ${page+1} 批完成：成功 ${d.successCount||0}，失敗 ${d.errorCount||0}｜已掃描 ${scanPool.length} 檔並依分數排序`;
+  showSortedScanPage();
 
-  if(!results.length){
+  if(!pageRows.length){
    const firstError=(d.errors&&d.errors.length)?d.errors[0].error:'本頁沒有可分析資料';
    $('#empty').textContent=`本頁未取得分析結果：${firstError}`;
   }else{
@@ -633,6 +672,7 @@ async function smartScan(){
  setSmartScanState(true,'同步股票資料中…','上市與上櫃名單同步');
  try{
   page=0;
+  resetScanPool();
   await syncUniverse();
   setSmartScanState(true,'AI 掃描分析中…',`${scanDirection==='bull'?'多方':'空方'}模式｜第 1 頁`);
   await scanPage();
@@ -1036,19 +1076,25 @@ document.querySelectorAll('.match-mode-btn').forEach(btn=>btn.addEventListener('
  techMatchMode=btn.dataset.matchMode||'any';
  updateMatchModeUI();
 }));
-$('#prev').onclick=()=>{if(page>0){page--;scanPage().catch(e=>setInlineScanMessage(e.message,'error'))}};
+$('#prev').onclick=()=>{
+ if(page>0){
+  page--;
+  showSortedScanPage();
+ }
+};
 $('#next').onclick=()=>{
- const market=document.getElementById('marketFilter')?.value||'all';
  const total=selectedMarketUniverse().length;
- if((page+1)*pageSize<total){
-  page++;
-  scanPage().catch(e=>setInlineScanMessage(e.message,'error'));
+ const nextPage=page+1;
+ if(nextPage*pageSize<total){
+  page=nextPage;
+  if(loadedScanPages.has(page)) showSortedScanPage();
+  else scanPage().catch(e=>setInlineScanMessage(e.message,'error'));
  }
 };
 $('#search').oninput=renderResults;
 document.querySelectorAll('.period').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.period').forEach(x=>x.classList.remove('active'));
- b.classList.add('active');period=b.dataset.period;page=0;results=[];renderResults();
+ b.classList.add('active');period=b.dataset.period;page=0;resetScanPool();renderResults();
  $('#progressText').textContent=`已切換${labelPeriod(period)}，請開始掃描`;
 });
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
@@ -1329,7 +1375,7 @@ const marketFilter=document.getElementById('marketFilter');
 if(marketFilter){
  marketFilter.addEventListener('change',()=>{
   page=0;
-  results=[];
+  resetScanPool();
   renderResults();
   renderRanking();
   updateMarketCounters(0);
