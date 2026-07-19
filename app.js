@@ -371,7 +371,7 @@ function mergeRankingRows(rows){
 
 function safeLoadUniverse(){
  try{
-  const u=JSON.parse(localStorage.getItem('v104-universe')||'[]');
+  const u=JSON.parse(localStorage.getItem('v105-universe')||'[]');
   return Array.isArray(u)?u:[];
  }catch(e){return []}
 }
@@ -426,8 +426,8 @@ async function syncUniverse(){
     const mergedTpex=newTpex.length ? newTpex : oldTpex;
     const mergedRows=interleaveMarkets([...mergedTwse,...mergedTpex]);
     universe=mergedRows;
-    localStorage.setItem('v104-universe',JSON.stringify(mergedRows));
-    localStorage.setItem('v104-last-sync',new Date().toISOString());
+    localStorage.setItem('v105-universe',JSON.stringify(mergedRows));
+    localStorage.setItem('v105-last-sync',new Date().toISOString());
     page=0;
     updateMarketCounters(0);
     const listedCount=universe.filter(x=>x.market==='TWSE').length;

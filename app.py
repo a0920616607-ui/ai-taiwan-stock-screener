@@ -521,9 +521,15 @@ def _fetch_twse_institutional():
             )
             r.raise_for_status()
             payload = r.json()
-            fields = payload.get("fields") or []
-            data = payload.get("data") or []
-            stat = str(payload.get("stat") or "")
+            # TWSE rwd API may return fields/data at the root or inside tables[0].
+            table = {}
+            if isinstance(payload, dict):
+                tables = payload.get("tables") or []
+                if isinstance(tables, list):
+                    table = next((t for t in tables if isinstance(t, dict) and t.get("data")), {})
+            fields = (payload.get("fields") if isinstance(payload, dict) else None) or table.get("fields") or []
+            data = (payload.get("data") if isinstance(payload, dict) else None) or table.get("data") or []
+            stat = str((payload.get("stat") if isinstance(payload, dict) else "") or table.get("stat") or "")
             if not data or ("很抱歉" in stat):
                 continue
 
@@ -1403,7 +1409,7 @@ def api_sector_members():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V9.5", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V10.5", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
@@ -1474,31 +1480,36 @@ def scan():
     client_total = max(0, int(body.get("clientTotal", 0) or 0))
 
     try:
-        uni = all_universe()
-        if market == "TWSE":
-            uni = [item for item in uni if item.get("market") == "TWSE"]
-        elif market == "TPEx":
-            uni = [item for item in uni if item.get("market") == "TPEx"]
-
-        # 混合市場一律由伺服器建立平衡批次，避免手機舊快取只含單一市場。
-        # 單一市場只有在伺服器名單暫時空白時，才採用手機保存名單作備援。
-        use_client_fallback = bool(client_stocks) and not uni
-        if use_client_fallback:
+        # V10.5: mixed mode is built from two independent market lists on the server.
+        # This guarantees each page contains both TWSE and TPEx when both sources are available.
+        if market == "all":
+            twse_rows = sorted(twse_universe() or _cache_last("TWSE") or _disk_last("TWSE"), key=lambda x: str(x.get("code", "")))
+            tpex_rows = sorted(tpex_universe() or _cache_last("TPEx") or _disk_last("TPEx"), key=lambda x: str(x.get("code", "")))
+            half_twse = (limit + 1) // 2
+            half_tpex = limit // 2
+            page_index = offset // limit if limit else 0
+            a = twse_rows[page_index * half_twse: page_index * half_twse + half_twse]
+            b = tpex_rows[page_index * half_tpex: page_index * half_tpex + half_tpex]
             batch = []
-            for row in client_stocks[:limit]:
-                code = str(row.get("code", "")).strip()
-                row_market = str(row.get("market") or "")
-                if not re.fullmatch(r"\d{4}", code):
-                    continue
-                if market in ("TWSE", "TPEx") and row_market != market:
-                    continue
-                batch.append({
-                    "code": code,
-                    "name": str(row.get("name") or code),
-                    "market": row_market or (market if market in ("TWSE", "TPEx") else "TWSE"),
-                })
-            effective_total = client_total or len(batch)
+            for i in range(max(len(a), len(b))):
+                if i < len(a): batch.append(a[i])
+                if i < len(b): batch.append(b[i])
+            # If one market has ended, fill the remaining slots from the other market.
+            if len(batch) < limit:
+                combined = twse_rows + tpex_rows
+                used = {str(x.get("market"))+str(x.get("code")) for x in batch}
+                for x in combined:
+                    key = str(x.get("market"))+str(x.get("code"))
+                    if key not in used:
+                        batch.append(x); used.add(key)
+                    if len(batch) >= limit: break
+            effective_total = len(twse_rows) + len(tpex_rows)
         else:
+            uni = twse_universe() if market == "TWSE" else tpex_universe()
+            uni = uni or _cache_last(market) or _disk_last(market)
+            # For a single market, the client batch is accepted only as a last fallback.
+            if not uni and client_stocks:
+                uni = [x for x in client_stocks if str(x.get("market")) == market]
             batch = uni[offset:offset + limit]
             effective_total = len(uni)
 
