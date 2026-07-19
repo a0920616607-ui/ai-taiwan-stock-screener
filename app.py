@@ -15,7 +15,7 @@ TPEX_DAILY_FALLBACKS = [
     "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php",
 ]
 TPEX_INST = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"
-UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/10.2)"}
+UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/10.3)"}
 INST_CACHE_FILE = os.path.join(os.path.dirname(__file__), "institutional_last_good.json")
 
 import time
@@ -394,6 +394,52 @@ def _today_taipei():
 def _to_roc_date(date_obj):
     return f"{date_obj.year - 1911:03d}{date_obj.month:02d}{date_obj.day:02d}"
 
+def _component_from_row(row, net_terms, buy_terms, sell_terms, exclude_terms=()):
+    """Read a net value directly; otherwise derive it from official buy minus sell columns."""
+    direct = _find_value(row, net_terms, exclude_terms)
+    if direct is not None:
+        return direct
+    buy = _find_value(row, buy_terms, exclude_terms)
+    sell = _find_value(row, sell_terms, exclude_terms)
+    buy_num, sell_num = num(buy), num(sell)
+    if buy_num is not None and sell_num is not None:
+        return buy_num - sell_num
+    return None
+
+
+def _upgrade_cached_inst_record(record):
+    """Make V10/V10.1 cache records readable by V10.3 without hiding real values."""
+    if not isinstance(record, dict):
+        return record
+    upgraded = dict(record)
+    for field, flag in (
+        ("foreignNet", "foreignAvailable"),
+        ("trustNet", "trustAvailable"),
+        ("dealerNet", "dealerAvailable"),
+    ):
+        if flag not in upgraded:
+            value = num(upgraded.get(field))
+            # Legacy versions wrote zero for missing components. A zero is accepted only
+            # when the record is internally consistent; otherwise it remains unavailable.
+            upgraded[flag] = value is not None
+    total = num(upgraded.get("institutionalNet"))
+    components = [num(upgraded.get(k)) for k in ("foreignNet", "trustNet", "dealerNet")]
+    if total is not None and all(v is not None for v in components):
+        if abs(total - sum(components)) > 1:
+            # Common legacy-cache pattern: only total was real while components were fake 0.
+            if all(v == 0 for v in components):
+                upgraded["foreignAvailable"] = False
+                upgraded["trustAvailable"] = False
+                upgraded["dealerAvailable"] = False
+            upgraded["institutionalConsistent"] = False
+        else:
+            upgraded["institutionalConsistent"] = True
+    upgraded["institutionalAvailable"] = total is not None or any(
+        upgraded.get(k) for k in ("foreignAvailable", "trustAvailable", "dealerAvailable")
+    )
+    return upgraded
+
+
 def _normalize_inst_record(code, foreign, trust, dealer, total, market, data_date, source):
     """Normalize one institutional record without turning missing fields into fake zeroes.
 
@@ -478,18 +524,34 @@ def _fetch_twse_institutional():
                 if not re.fullmatch(r"\d{4}", code):
                     continue
 
-                foreign = _find_value(
+                foreign = _component_from_row(
                     row,
                     ["外陸資", "買賣超"],
+                    ["外陸資", "買進"],
+                    ["外陸資", "賣出"],
                     ["外資自營商"],
                 )
                 if foreign is None:
-                    foreign = _find_value(row, ["外資", "買賣超"], ["自營商"])
+                    foreign = _component_from_row(
+                        row, ["外資", "買賣超"], ["外資", "買進"], ["外資", "賣出"], ["自營商"]
+                    )
 
-                trust = _find_value(row, ["投信", "買賣超"])
+                trust = _component_from_row(
+                    row, ["投信", "買賣超"], ["投信", "買進"], ["投信", "賣出"]
+                )
 
-                dealer_self = _find_value(row, ["自營商", "自行買賣", "買賣超"])
-                dealer_hedge = _find_value(row, ["自營商", "避險", "買賣超"])
+                dealer_self = _component_from_row(
+                    row,
+                    ["自營商", "自行買賣", "買賣超"],
+                    ["自營商", "自行買賣", "買進"],
+                    ["自營商", "自行買賣", "賣出"],
+                )
+                dealer_hedge = _component_from_row(
+                    row,
+                    ["自營商", "避險", "買賣超"],
+                    ["自營商", "避險", "買進"],
+                    ["自營商", "避險", "賣出"],
+                )
                 dealer_total = _find_value(
                     row,
                     ["自營商", "買賣超"],
@@ -610,23 +672,48 @@ def _fetch_tpex_institutional():
     return out, {"tpexDate": latest_date, "tpexCount": len(out)}
 
 def institutional_map(force=False):
-    """Return official TWSE + TPEx institutional data. Missing data is explicit, never faked as zero."""
+    """Return TWSE + TPEx data, falling back independently by market."""
     now = _today_taipei()
     cache_key = now.strftime("%Y%m%d-%H")
     if not force and _INST_CACHE["key"] == cache_key and _INST_CACHE["data"]:
         return _INST_CACHE["data"]
 
+    saved_data, saved_meta = _load_last_good_institutional()
+    saved_data = {code: _upgrade_cached_inst_record(rec) for code, rec in saved_data.items()}
+
     twse, twse_meta = _fetch_twse_institutional()
     tpex, tpex_meta = _fetch_tpex_institutional()
-    merged = {**twse, **tpex}
-    meta = {**twse_meta, **tpex_meta, "fallback": False}
 
-    # 假日或官方端點暫時空白時，沿用最近一次成功資料，避免把缺資料誤顯示成 0 股。
-    if not merged:
-        merged, saved_meta = _load_last_good_institutional()
-        if merged:
-            meta = {**saved_meta, "fallback": True, "fallbackReason": "官方假日／暫時無資料，沿用最近交易日"}
-    else:
+    fallback_markets = []
+    if not twse:
+        twse = {c: r for c, r in saved_data.items() if r.get("institutionalMarket") == "TWSE"}
+        if twse:
+            fallback_markets.append("上市")
+            twse_meta = {
+                "twseDate": saved_meta.get("twseDate", ""),
+                "twseCount": len(twse),
+            }
+    if not tpex:
+        tpex = {c: r for c, r in saved_data.items() if r.get("institutionalMarket") == "TPEx"}
+        if tpex:
+            fallback_markets.append("上櫃")
+            tpex_meta = {
+                "tpexDate": saved_meta.get("tpexDate", ""),
+                "tpexCount": len(tpex),
+            }
+
+    merged = {**twse, **tpex}
+    meta = {
+        **twse_meta,
+        **tpex_meta,
+        "fallback": bool(fallback_markets),
+        "fallbackMarkets": fallback_markets,
+        "fallbackReason": ("、".join(fallback_markets) + "沿用最近交易日") if fallback_markets else "",
+    }
+
+    # Save a merged snapshot only when at least one market has usable data. This preserves
+    # the previously good other market instead of replacing it with an empty response.
+    if merged:
         _save_last_good_institutional(merged, meta)
 
     _INST_CACHE["key"] = cache_key

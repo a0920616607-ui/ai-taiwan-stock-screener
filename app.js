@@ -130,6 +130,18 @@ function interleaveMarkets(rows){
  }
  return mixed;
 }
+function balancedPageBatch(rows,pageIndex,pageSizeValue){
+ const twse=rows.filter(x=>x.market==='TWSE');
+ const tpex=rows.filter(x=>x.market==='TPEx');
+ if(!twse.length || !tpex.length){
+  return rows.slice(pageIndex*pageSizeValue,(pageIndex+1)*pageSizeValue);
+ }
+ const twseTake=Math.ceil(pageSizeValue/2);
+ const tpexTake=Math.floor(pageSizeValue/2);
+ const a=twse.slice(pageIndex*twseTake,pageIndex*twseTake+twseTake);
+ const b=tpex.slice(pageIndex*tpexTake,pageIndex*tpexTake+tpexTake);
+ return interleaveMarkets([...a,...b]);
+}
 function selectedMarketUniverse(){
  const market=document.getElementById('marketFilter')?.value||'all';
  if(market==='all')return interleaveMarkets(universe);
@@ -448,7 +460,7 @@ async function scanPage(){
    body:JSON.stringify((()=>{
     const market=document.getElementById('marketFilter')?.value||'all';
     const selected=selectedMarketUniverse();
-    const batch=selected.slice(page*pageSize,(page+1)*pageSize).map(x=>({
+    const batch=(market==='all' ? balancedPageBatch(selected,page,pageSize) : selected.slice(page*pageSize,(page+1)*pageSize)).map(x=>({
       code:x.code,name:x.name,market:x.market
     }));
     return {
@@ -1342,7 +1354,7 @@ async function refreshInstitutionalStatus(){
   const twse=Number(d.twseCount||0);
   const tpex=Number(d.tpexCount||0);
   const dates=[d.twseDate,d.tpexDate].filter(Boolean).join('／');
-  el.textContent=`法人資料：${d.fallback?'沿用最近交易日':'官方'} ${total.toLocaleString()} 檔（上市 ${twse}／上櫃 ${tpex}）${dates?'｜日期 '+dates:''}`;
+  el.textContent=`法人資料：${d.fallback?(`部分沿用最近交易日${Array.isArray(d.fallbackMarkets)&&d.fallbackMarkets.length?'（'+d.fallbackMarkets.join('、')+'）':''}`):'官方'} ${total.toLocaleString()} 檔（上市 ${twse}／上櫃 ${tpex}）${dates?'｜日期 '+dates:''}`;
   el.className=total>0?'official-status ok':'official-status warn';
  }catch(e){
   el.textContent='法人資料：暫時無法取得';
