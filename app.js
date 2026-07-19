@@ -119,9 +119,20 @@ function aiLabelFromScore(score){
 }
 
 
+function interleaveMarkets(rows){
+ const twse=rows.filter(x=>x.market==='TWSE');
+ const tpex=rows.filter(x=>x.market==='TPEx');
+ const mixed=[];
+ const maxLen=Math.max(twse.length,tpex.length);
+ for(let i=0;i<maxLen;i++){
+  if(i<twse.length)mixed.push(twse[i]);
+  if(i<tpex.length)mixed.push(tpex[i]);
+ }
+ return mixed;
+}
 function selectedMarketUniverse(){
  const market=document.getElementById('marketFilter')?.value||'all';
- if(market==='all')return universe;
+ if(market==='all')return interleaveMarkets(universe);
  return universe.filter(x=>x.market===market);
 }
 function updateMarketCounters(scannedCount=null, marketTotal=null){
@@ -732,7 +743,7 @@ function filteredResults(){
    boll_upper:()=>Number(x.bollPositionScore)>=8,
    boll_slope_up:()=>Number(x.bollSlopePct)>0,
    boll_open_up:()=>Boolean(x.bollExpanding)&&Number(x.bollPositionScore)>=0,
-   foreign_buy:()=>Boolean(x.institutionalAvailable)&&Number(x.foreignNet)>0,
+   foreign_buy:()=>Boolean(x.foreignAvailable)&&Number(x.foreignNet)>0,
    trust_buy:()=>Boolean(x.institutionalAvailable)&&Number(x.trustNet)>0,
    buy:()=>signal.type==='buy',
 
@@ -746,7 +757,7 @@ function filteredResults(){
    ema100_macd_bear:()=>Boolean(ema100>0&&close<ema100&&macd<macdSignal),
    boll_lower:()=>Number(x.bollPositionScore)<=-8,
    boll_slope_down:()=>Number(x.bollSlopePct)<0,
-   foreign_sell:()=>Boolean(x.institutionalAvailable)&&Number(x.foreignNet)<0,
+   foreign_sell:()=>Boolean(x.foreignAvailable)&&Number(x.foreignNet)<0,
    sell:()=>signal.type==='sell'
   };
 
@@ -1188,10 +1199,10 @@ window.openStockDetailByCode=function(code){
  $('#detailInst').textContent=x.institutionalScore??'-';
  $('#detailMain').textContent=x.mainForceScore??'-';
 
- setFlowValue('#detailInstNet',x.institutionalNet);
- setFlowValue('#detailForeign',x.foreignNet);
- setFlowValue('#detailTrust',x.trustNet);
- setFlowValue('#detailDealer',x.dealerNet);
+ setFlowValue('#detailInstNet',x.institutionalNet,Boolean(x.institutionalAvailable));
+ setFlowValue('#detailForeign',x.foreignNet,Boolean(x.foreignAvailable));
+ setFlowValue('#detailTrust',x.trustNet,Boolean(x.trustAvailable));
+ setFlowValue('#detailDealer',x.dealerNet,Boolean(x.dealerAvailable));
 
  $('#detailKD').textContent=`${x.K??'-'} / ${x.D??'-'}`;
  $('#detailRSI').textContent=x.RSI??'-';
@@ -1232,10 +1243,21 @@ window.closeStockDetail=function(){
  document.body.classList.remove('modal-open');
 }
 
-function setFlowValue(selector,value){
+function setFlowValue(selector,value,available=true){
  const el=$(selector);
- const n=Number(value||0);
- el.textContent=formatShares(n);
+ if(!el)return;
+ if(!available || value===null || value===undefined || value===''){
+  el.textContent='待更新';
+  el.className='';
+  return;
+ }
+ const n=Number(value);
+ if(!Number.isFinite(n)){
+  el.textContent='待更新';
+  el.className='';
+  return;
+ }
+ el.textContent=formatShares(n,true);
  el.className=n>0?'flow-buy':n<0?'flow-sell':'';
 }
 

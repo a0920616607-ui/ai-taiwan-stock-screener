@@ -15,7 +15,7 @@ TPEX_DAILY_FALLBACKS = [
     "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php",
 ]
 TPEX_INST = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"
-UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/10.0)"}
+UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/10.2)"}
 INST_CACHE_FILE = os.path.join(os.path.dirname(__file__), "institutional_last_good.json")
 
 import time
@@ -333,11 +333,25 @@ def tpex_universe():
 def all_universe():
     twse = twse_universe() or _cache_last("TWSE")
     tpex = tpex_universe() or _cache_last("TPEx") or _disk_last("TPEx")
-    merged = {}
-    for item in list(twse) + list(tpex):
-        key = f"{item.get('market', '')}:{item.get('code', '')}"
-        merged[key] = item
-    return sorted(merged.values(), key=lambda x: (x.get("market", ""), x.get("code", "")))
+
+    # 各市場先依股票代號排序，再交錯排列。
+    # 避免「上市＋上櫃」模式分頁時，第一頁只出現上櫃股票。
+    twse_rows = sorted(
+        {str(item.get("code", "")): item for item in list(twse)}.values(),
+        key=lambda x: x.get("code", "")
+    )
+    tpex_rows = sorted(
+        {str(item.get("code", "")): item for item in list(tpex)}.values(),
+        key=lambda x: x.get("code", "")
+    )
+
+    mixed = []
+    for i in range(max(len(twse_rows), len(tpex_rows))):
+        if i < len(twse_rows):
+            mixed.append(twse_rows[i])
+        if i < len(tpex_rows):
+            mixed.append(tpex_rows[i])
+    return mixed
 
 
 _INST_CACHE = {"key": None, "data": {}, "meta": {}}
@@ -381,20 +395,54 @@ def _to_roc_date(date_obj):
     return f"{date_obj.year - 1911:03d}{date_obj.month:02d}{date_obj.day:02d}"
 
 def _normalize_inst_record(code, foreign, trust, dealer, total, market, data_date, source):
-    foreign = num(foreign) or 0
-    trust = num(trust) or 0
-    dealer = num(dealer) or 0
+    """Normalize one institutional record without turning missing fields into fake zeroes.
+
+    Official feeds occasionally omit or rename the foreign-investor column while still
+    providing the total, investment-trust, and dealer totals. In that case foreign net
+    is reconstructed as total - trust - dealer and clearly marked as calculated.
+    """
+    foreign_num = num(foreign)
+    trust_num = num(trust)
+    dealer_num = num(dealer)
     total_num = num(total)
-    if total_num is None:
-        total_num = foreign + trust + dealer
+
+    calculated_fields = []
+
+    # A missing component must remain missing unless it can be derived exactly.
+    if foreign_num is None and total_num is not None and trust_num is not None and dealer_num is not None:
+        foreign_num = total_num - trust_num - dealer_num
+        calculated_fields.append("foreignNet")
+
+    # The official total can safely be reconstructed only when all three components exist.
+    if total_num is None and foreign_num is not None and trust_num is not None and dealer_num is not None:
+        total_num = foreign_num + trust_num + dealer_num
+        calculated_fields.append("institutionalNet")
+
+    available = total_num is not None or any(v is not None for v in (foreign_num, trust_num, dealer_num))
+    all_components_available = all(v is not None for v in (foreign_num, trust_num, dealer_num))
+    consistent = None
+    if total_num is not None and all_components_available:
+        consistent = abs(total_num - (foreign_num + trust_num + dealer_num)) <= 1
+
+    source_label = source
+    if calculated_fields:
+        source_label = f"{source}／系統補算"
+
     return {
-        "foreignNet": round(foreign),
-        "trustNet": round(trust),
-        "dealerNet": round(dealer),
-        "institutionalNet": round(total_num),
-        "institutionalAvailable": True,
+        "foreignNet": round(foreign_num) if foreign_num is not None else None,
+        "trustNet": round(trust_num) if trust_num is not None else None,
+        "dealerNet": round(dealer_num) if dealer_num is not None else None,
+        "institutionalNet": round(total_num) if total_num is not None else None,
+        "foreignAvailable": foreign_num is not None,
+        "trustAvailable": trust_num is not None,
+        "dealerAvailable": dealer_num is not None,
+        "institutionalAvailable": available,
+        "institutionalComplete": total_num is not None and all_components_available,
+        "institutionalConsistent": consistent,
+        "institutionalCalculatedFields": calculated_fields,
+        "institutionalDataStatus": "補算資料" if calculated_fields else ("官方資料" if available else "待更新"),
         "institutionalDate": data_date or "",
-        "institutionalSource": source,
+        "institutionalSource": source_label,
         "institutionalMarket": market,
     }
 
@@ -936,50 +984,57 @@ def analyze(code, name, period, inst):
 
     # 2) 法人分數 0~100
     inst_data = inst.get(code, {
-        "foreignNet": 0,
-        "trustNet": 0,
-        "dealerNet": 0,
-        "institutionalNet": 0,
+        "foreignNet": None,
+        "trustNet": None,
+        "dealerNet": None,
+        "institutionalNet": None,
+        "foreignAvailable": False,
+        "trustAvailable": False,
+        "dealerAvailable": False,
         "institutionalAvailable": False,
+        "institutionalComplete": False,
+        "institutionalConsistent": None,
+        "institutionalCalculatedFields": [],
+        "institutionalDataStatus": "待更新",
         "institutionalDate": "",
         "institutionalSource": "",
         "institutionalMarket": source_meta.get("exchange"),
     })
-    foreign_net = inst_data["foreignNet"]
-    trust_net = inst_data["trustNet"]
-    dealer_net = inst_data["dealerNet"]
-    institutional_net = inst_data["institutionalNet"]
+    foreign_net = inst_data.get("foreignNet")
+    trust_net = inst_data.get("trustNet")
+    dealer_net = inst_data.get("dealerNet")
+    institutional_net = inst_data.get("institutionalNet")
 
     institutional_score = 50
     institutional_reasons = []
     institutional_available = bool(inst_data.get("institutionalAvailable"))
 
     if institutional_available:
-        if institutional_net > 0:
+        if institutional_net is not None and institutional_net > 0:
             institutional_score += 18
             institutional_reasons.append("官方三大法人合計買超 +18")
-        elif institutional_net < 0:
+        elif institutional_net is not None and institutional_net < 0:
             institutional_score -= 18
             institutional_reasons.append("官方三大法人合計賣超 -18")
 
-        if foreign_net > 0:
+        if foreign_net is not None and foreign_net > 0:
             institutional_score += 12
             institutional_reasons.append("官方外資買超 +12")
-        elif foreign_net < 0:
+        elif foreign_net is not None and foreign_net < 0:
             institutional_score -= 10
             institutional_reasons.append("官方外資賣超 -10")
 
-        if trust_net > 0:
+        if trust_net is not None and trust_net > 0:
             institutional_score += 12
             institutional_reasons.append("官方投信買超 +12")
-        elif trust_net < 0:
+        elif trust_net is not None and trust_net < 0:
             institutional_score -= 8
             institutional_reasons.append("官方投信賣超 -8")
 
-        if dealer_net > 0:
+        if dealer_net is not None and dealer_net > 0:
             institutional_score += 8
             institutional_reasons.append("官方自營商買超 +8")
-        elif dealer_net < 0:
+        elif dealer_net is not None and dealer_net < 0:
             institutional_score -= 6
             institutional_reasons.append("官方自營商賣超 -6")
     else:
@@ -993,10 +1048,10 @@ def analyze(code, name, period, inst):
     main_force_reasons = []
 
     if institutional_available:
-        if institutional_net > 0:
+        if institutional_net is not None and institutional_net > 0:
             main_force_score += 20
             main_force_reasons.append("官方法人方向偏多 +20")
-        elif institutional_net < 0:
+        elif institutional_net is not None and institutional_net < 0:
             main_force_score -= 20
             main_force_reasons.append("官方法人方向偏空 -20")
     else:
