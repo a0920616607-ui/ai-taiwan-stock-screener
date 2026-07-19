@@ -371,7 +371,7 @@ function mergeRankingRows(rows){
 
 function safeLoadUniverse(){
  try{
-  const u=JSON.parse(localStorage.getItem('v63-universe')||'[]');
+  const u=JSON.parse(localStorage.getItem('v104-universe')||'[]');
   return Array.isArray(u)?u:[];
  }catch(e){return []}
 }
@@ -417,16 +417,17 @@ async function syncUniverse(){
     const d=await fetchJsonSafe('/api/universe',{retryCount:3,retryDelays:[1800,3500,7000],timeoutMs:50000});
     const rows=Array.isArray(d) ? d : (Array.isArray(d.data) ? d.data : []);
     const oldRows=safeLoadUniverse();
+    const oldTwse=oldRows.filter(x=>x.market==='TWSE');
     const oldTpex=oldRows.filter(x=>x.market==='TPEx');
+    const newTwse=rows.filter(x=>x.market==='TWSE');
     const newTpex=rows.filter(x=>x.market==='TPEx');
-    let mergedRows=rows;
-    if(newTpex.length===0 && oldTpex.length>0){
-      const listed=rows.filter(x=>x.market==='TWSE');
-      mergedRows=[...listed,...oldTpex];
-    }
+    // 任一市場同步暫時失敗時，各自沿用該市場最近成功名單。
+    const mergedTwse=newTwse.length ? newTwse : oldTwse;
+    const mergedTpex=newTpex.length ? newTpex : oldTpex;
+    const mergedRows=interleaveMarkets([...mergedTwse,...mergedTpex]);
     universe=mergedRows;
-    localStorage.setItem('v63-universe',JSON.stringify(mergedRows));
-    localStorage.setItem('v63-last-sync',new Date().toISOString());
+    localStorage.setItem('v104-universe',JSON.stringify(mergedRows));
+    localStorage.setItem('v104-last-sync',new Date().toISOString());
     page=0;
     updateMarketCounters(0);
     const listedCount=universe.filter(x=>x.market==='TWSE').length;

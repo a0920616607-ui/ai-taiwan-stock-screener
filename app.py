@@ -6,6 +6,16 @@ import requests, os, re, json, math
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
+@app.after_request
+def add_no_cache_headers(response):
+    # 避免 Render 部署新版後，手機仍載入舊版 app.js / API 結果。
+    if request.path.endswith((".js", ".css", ".html")) or request.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 TWSE_DAILY = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
 TWSE_INST = "https://www.twse.com.tw/rwd/zh/fund/T86"
 TPEX_DAILY = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes"
@@ -15,8 +25,8 @@ TPEX_DAILY_FALLBACKS = [
     "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php",
 ]
 TPEX_INST = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"
-UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/10.3)"}
-INST_CACHE_FILE = os.path.join(os.path.dirname(__file__), "institutional_last_good.json")
+UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/10.4)"}
+INST_CACHE_FILE = os.path.join(os.path.dirname(__file__), "institutional_last_good_v104.json")
 
 import time
 
@@ -1470,17 +1480,22 @@ def scan():
         elif market == "TPEx":
             uni = [item for item in uni if item.get("market") == "TPEx"]
 
-        # 若 Render 暫時抓不到上櫃名單，改用手機瀏覽器已保存的名單批次。
-        if client_stocks:
+        # 混合市場一律由伺服器建立平衡批次，避免手機舊快取只含單一市場。
+        # 單一市場只有在伺服器名單暫時空白時，才採用手機保存名單作備援。
+        use_client_fallback = bool(client_stocks) and not uni
+        if use_client_fallback:
             batch = []
             for row in client_stocks[:limit]:
                 code = str(row.get("code", "")).strip()
+                row_market = str(row.get("market") or "")
                 if not re.fullmatch(r"\d{4}", code):
+                    continue
+                if market in ("TWSE", "TPEx") and row_market != market:
                     continue
                 batch.append({
                     "code": code,
                     "name": str(row.get("name") or code),
-                    "market": str(row.get("market") or market or "TPEx"),
+                    "market": row_market or (market if market in ("TWSE", "TPEx") else "TWSE"),
                 })
             effective_total = client_total or len(batch)
         else:
