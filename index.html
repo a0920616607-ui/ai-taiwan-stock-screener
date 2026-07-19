@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V10.8</title>
+<meta name="theme-color" content="#07111f"><title>AI 台灣個股智慧選股 V11.0</title>
 <link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css?v=104">
 </head><body>
 <header class="v9-header">
       <div class="brand-block">
         <small>TAIWAN STOCK AI</small>
-        <h1>AI 台灣個股智慧選股 <b>V10.8</b></h1>
+        <h1>AI 台灣個股智慧選股 <b>V11.0</b></h1>
       </div>
       <span id="health" class="health-badge"><span class="cloud-mark">⌁</span>連線中</span>
     </header>
@@ -133,9 +133,11 @@
       <option value="999">不限</option>
     </select>
   </label>
-  <label class="inline-check main-up-check"><input id="mainUpStartOnly" type="checkbox">🚀 主升啟動</label>
-  <small class="main-up-note">內含：布林帶寬 ≤ 8%＋量增＋MACD 零軸之上</small>
-  <label class="inline-check"><input id="mainUpEMAFilter" type="checkbox">主升啟動加上 EMA100 多頭過濾</label>
+  <div class="main-rise-box">
+    <label class="main-rise-check"><input id="mainRiseOnly" type="checkbox"><span>🚀 主升啟動</span></label>
+    <small>一鍵內含：布林帶寬 ≤ 8%＋量比 ≥ 1.2＋MACD 位於零軸之上</small>
+    <label class="inline-check main-rise-ema"><input id="mainRiseEMA100" type="checkbox">再加 EMA100 多頭過濾</label>
+  </div>
   <label class="inline-check"><input id="earlyTrendOnly" type="checkbox">只顯示 AI 起漲</label>
   <label>排序
     <select id="sortMode">

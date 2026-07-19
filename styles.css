@@ -2531,4 +2531,9 @@ main{
 @media(max-width:420px){.boll-info-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.boll-info-grid>div{padding:10px}.boll-info-grid b{font-size:16px}}
 
 /* V11 主升啟動 */
-.main-up-check{font-weight:800;color:#ffd56a}.main-up-note{display:block;margin:-5px 0 8px 24px;color:rgba(220,230,245,.72);line-height:1.35}.main-up-badge{background:linear-gradient(135deg,rgba(255,177,52,.25),rgba(255,92,46,.22));border-color:rgba(255,190,72,.72);color:#ffd56a;box-shadow:0 0 12px rgba(255,156,53,.16)}.inline-check input:disabled+*{opacity:.45}
+.main-rise-box{grid-column:1/-1;border:1px solid rgba(49,211,130,.55);background:rgba(24,165,91,.10);border-radius:16px;padding:12px 14px;display:grid;gap:6px}
+.main-rise-check{display:flex!important;align-items:center;gap:9px;font-size:18px;font-weight:900;color:#35e58b}
+.main-rise-check input{width:21px;height:21px;accent-color:#23cf78}
+.main-rise-box small{color:#93a9bd;line-height:1.45}
+.main-rise-ema{margin-top:2px;color:#d8e6f2}
+.main-rise-badge{background:linear-gradient(135deg,#0e9d59,#2adf8b)!important;color:#fff!important;border-color:rgba(81,255,169,.75)!important}

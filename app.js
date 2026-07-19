@@ -765,20 +765,22 @@ function filteredResults(){
  const minScore=Number(document.getElementById('minScoreFilter')?.value||70);
  const maxDistance=Number(document.getElementById('emaDistanceFilter')?.value||5);
  const earlyOnly=Boolean(document.getElementById('earlyTrendOnly')?.checked);
- const mainUpOnly=Boolean(document.getElementById('mainUpStartOnly')?.checked);
- const mainUpEMA=Boolean(document.getElementById('mainUpEMAFilter')?.checked);
+ const mainRiseOnly=Boolean(document.getElementById('mainRiseOnly')?.checked);
+ const mainRiseEMA100=Boolean(document.getElementById('mainRiseEMA100')?.checked);
 
  let a=results.filter(x=>{
   if(q && !x.code.includes(q) && !x.name.includes(q)) return false;
   if(market!=='all' && x.market!==market) return false;
   const ai=Number(x.aiScore??x.score??0);
   const distance=Number(x.EMADistancePct);
-  // 主升啟動是一鍵策略；啟用時不再被一般最低分數與 EMA 乖離條件誤擋。
-  if(!mainUpOnly && ai<minScore)return false;
-  if(!mainUpOnly && maxDistance<999 && (!Number.isFinite(distance) || distance<0 || distance>maxDistance))return false;
+  if(!mainRiseOnly && ai<minScore)return false;
+  if(!mainRiseOnly && maxDistance<999 && (!Number.isFinite(distance) || distance<0 || distance>maxDistance))return false;
   if(earlyOnly && !Boolean(x.earlyTrend))return false;
-  if(mainUpOnly && !Boolean(x.mainUpStart))return false;
-  if(mainUpOnly && mainUpEMA && !Boolean(x.mainUpStartEMA))return false;
+  if(mainRiseOnly){
+   const mainRise=Boolean(x.mainRiseStart) || (Number(x.bollWidth)<=8 && Number(x.volumeRatio)>=1.2 && Number(x.DIF)>0);
+   if(!mainRise)return false;
+   if(mainRiseEMA100 && !(Boolean(x.aboveEMA100)&&Boolean(x.EMA100Rising)))return false;
+  }
 
   const signal=getSignal(x);
   const close=Number(x.close||0);
@@ -854,7 +856,7 @@ function renderResults(){
       <b>${x.code}</b>
       <span>${x.name}</span>
       <small>${x.market==='TPEx'?'上櫃':'上市'}</small>
-      ${x.mainUpStart?'<em class="strategy-badge main-up-badge">🚀主升啟動</em>':x.earlyTrend?'<em class="strategy-badge">AI起漲</em>':x.EMA100MACDStrategy?'<em class="strategy-badge">EMA100策略</em>':''}<small class="metric-note">乖離 ${Number.isFinite(Number(x.EMADistancePct))?Number(x.EMADistancePct).toFixed(1)+'%':'-'}｜布林 ${Number.isFinite(Number(x.bollWidth))?Number(x.bollWidth).toFixed(1)+'%':'-'} ${x.bollExpanding?'擴張':'收縮'}</small>
+      ${x.mainRiseStart?'<em class="strategy-badge main-rise-badge">🚀主升啟動</em>':x.earlyTrend?'<em class="strategy-badge">AI起漲</em>':x.EMA100MACDStrategy?'<em class="strategy-badge">EMA100策略</em>':''}<small class="metric-note">乖離 ${Number.isFinite(Number(x.EMADistancePct))?Number(x.EMADistancePct).toFixed(1)+'%':'-'}｜布林 ${x.bollWidth??'-'}% ${x.bollPosition||'-'}</small>
     </button>
 
     <div class="pro-close"><b>${x.close??'-'}</b>${formatPriceChange(x)}</div>
@@ -1375,14 +1377,7 @@ function renderRanking(){
 }
 
 document.getElementById('sortMode')?.addEventListener('change',renderResults);
-['minScoreFilter','emaDistanceFilter','earlyTrendOnly','mainUpStartOnly','mainUpEMAFilter'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{page=0;renderResults();}));
-const mainUpStartOnly=document.getElementById('mainUpStartOnly');
-const mainUpEMAFilter=document.getElementById('mainUpEMAFilter');
-if(mainUpStartOnly&&mainUpEMAFilter){
- const syncMainUpEMA=()=>{mainUpEMAFilter.disabled=!mainUpStartOnly.checked;if(!mainUpStartOnly.checked)mainUpEMAFilter.checked=false;};
- mainUpStartOnly.addEventListener('change',syncMainUpEMA);
- syncMainUpEMA();
-}
+['minScoreFilter','emaDistanceFilter','earlyTrendOnly','mainRiseOnly','mainRiseEMA100'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{page=0;renderResults();}));
 const marketFilter=document.getElementById('marketFilter');
 if(marketFilter){
  marketFilter.addEventListener('change',()=>{
