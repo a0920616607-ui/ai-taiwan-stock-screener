@@ -7,7 +7,7 @@
 <header class="v9-header">
       <div class="brand-block">
         <small>TAIWAN STOCK AI</small>
-        <h1>AI 台灣個股智慧選股 <b>V9.4</b></h1>
+        <h1>AI 台灣個股智慧選股 <b>V9.5</b></h1>
       </div>
       <span id="health" class="health-badge"><span class="cloud-mark">⌁</span>連線中</span>
     </header>
@@ -410,7 +410,7 @@
             <div class="ema-chart-legend">
               <span><i class="legend-price"></i>個股價格</span>
               <span><i class="legend-ema"></i>EMA100</span>
-              <span><i class="legend-boll"></i>布林通道</span>
+              <span><i class="legend-boll"></i>布林上下軌／區間</span><span><i class="legend-boll-mid"></i>布林中軌</span>
             </div>
           </div>
 
@@ -419,6 +419,15 @@
             <div><span>EMA100</span><b id="emaCurrentValue">-</b></div>
             <div><span>距離 EMA100</span><b id="emaDistance">-</b></div>
             <div><span>EMA100 方向</span><b id="emaDirection">-</b></div>
+          </div>
+
+          <div class="boll-info-grid">
+            <div><span>布林上軌</span><b id="bollUpperValue">-</b></div>
+            <div><span>布林中軌</span><b id="bollMidValue">-</b></div>
+            <div><span>布林下軌</span><b id="bollLowerValue">-</b></div>
+            <div><span>布林帶寬</span><b id="bollWidthValue">-</b></div>
+            <div><span>股價位置</span><b id="bollPositionValue">-</b></div>
+            <div><span>布林狀態</span><b id="bollStateValue">-</b></div>
           </div>
 
           <div class="strength-card bull-card">
@@ -451,5 +460,5 @@
   </section>
 </div>
 
-<script src="/app.js?v=93a4"></script>
+<script src="/app.js?v=95b1"></script>
 </body></html>

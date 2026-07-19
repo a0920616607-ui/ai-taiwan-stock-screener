@@ -2521,3 +2521,11 @@ main{
 .legend-boll{display:inline-block;width:18px;height:3px;border-radius:4px;background:#a882ff;margin-right:5px}
 .filter-panel{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 @media(max-width:560px){.filter-panel{grid-template-columns:1fr 1fr}.inline-check{grid-column:1/-1}}
+
+/* V9.5 布林通道穩定顯示與資訊卡 */
+.legend-boll-mid{display:inline-block;width:18px;height:0;border-top:2px dashed #a882ff;margin-right:5px;vertical-align:middle}
+.boll-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0 14px}
+.boll-info-grid>div{padding:12px 14px;border:1px solid rgba(99,163,210,.28);border-radius:16px;background:rgba(8,30,49,.42);min-width:0}
+.boll-info-grid span{display:block;color:#8fa4bb;font-size:13px;margin-bottom:6px}
+.boll-info-grid b{display:block;color:#f3f7fb;font-size:18px;overflow-wrap:anywhere}
+@media(max-width:420px){.boll-info-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.boll-info-grid>div{padding:10px}.boll-info-grid b{font-size:16px}}

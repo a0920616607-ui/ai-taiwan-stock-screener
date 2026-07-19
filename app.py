@@ -986,7 +986,7 @@ def analyze(code, name, period, inst):
         else "主力中性"
     )
 
-    # V9.4 AI 總分：提高趨勢與技術權重，法人與主力作確認
+    # V9.5 AI 總分：提高趨勢與技術權重，法人與主力作確認
     ai_score = round(
         technical_score * 0.55 +
         institutional_score * 0.25 +
@@ -1201,7 +1201,7 @@ def api_sector_members():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V9.4", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V9.5", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():

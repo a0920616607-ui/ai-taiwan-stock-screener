@@ -1053,7 +1053,8 @@ function drawEMA100Chart(stock){
  if(!canvas)return;
 
  const raw=Array.isArray(stock?.emaChart)?stock.emaChart:[];
- const points=raw.filter(x=>Number.isFinite(Number(x.close)) && Number.isFinite(Number(x.ema100)));
+ // 只以收盤價判斷是否保留資料，避免 EMA 或布林其中一欄為空時整根資料被刪除。
+ const points=raw.filter(x=>Number.isFinite(Number(x.close)));
  const wrap=canvas.parentElement;
  const width=Math.max(280,wrap?.clientWidth||320);
  const height=240;
@@ -1072,14 +1073,16 @@ function drawEMA100Chart(stock){
   ctx.fillStyle='#9fb0c5';
   ctx.font='14px sans-serif';
   ctx.textAlign='center';
-  ctx.fillText('EMA100 圖形資料不足',width/2,height/2);
+  ctx.fillText('圖形資料不足',width/2,height/2);
   return;
  }
 
  const pad={left:48,right:16,top:20,bottom:32};
- const values=points.flatMap(p=>[Number(p.close),Number(p.ema100),Number(p.bollUpper),Number(p.bollLower)]).filter(Number.isFinite);
+ const numericKeys=['close','ema100','bollUpper','bollMid','bollLower'];
+ const values=points.flatMap(p=>numericKeys.map(k=>Number(p[k]))).filter(Number.isFinite);
+ if(values.length<2)return;
  let min=Math.min(...values),max=Math.max(...values);
- const spread=Math.max(max-min,max*0.02,1);
+ const spread=Math.max(max-min,Math.abs(max)*0.02,1);
  min-=spread*0.12;
  max+=spread*0.12;
 
@@ -1091,72 +1094,57 @@ function drawEMA100Chart(stock){
  ctx.fillStyle='#8ca2ba';
  ctx.font='11px sans-serif';
  ctx.textAlign='right';
-
  for(let n=0;n<=4;n++){
   const yy=pad.top+n*(height-pad.top-pad.bottom)/4;
   const val=max-n*(max-min)/4;
-  ctx.beginPath();
-  ctx.moveTo(pad.left,yy);
-  ctx.lineTo(width-pad.right,yy);
-  ctx.stroke();
+  ctx.beginPath();ctx.moveTo(pad.left,yy);ctx.lineTo(width-pad.right,yy);ctx.stroke();
   ctx.fillText(val.toFixed(2),pad.left-7,yy+4);
  }
 
- const drawLine=(key,stroke,lineWidth)=>{
+ // 布林帶填色：逐段處理，遇到 null/NaN 僅中斷該段，不讓整條通道消失。
+ const segments=[]; let segment=[];
+ points.forEach((p,i)=>{
+  const upper=Number(p.bollUpper),lower=Number(p.bollLower);
+  if(Number.isFinite(upper)&&Number.isFinite(lower)) segment.push({i,upper,lower});
+  else if(segment.length){segments.push(segment);segment=[];}
+ });
+ if(segment.length)segments.push(segment);
+ segments.filter(seg=>seg.length>=2).forEach(seg=>{
   ctx.beginPath();
-  points.forEach((p,i)=>{
-   const px=x(i),py=y(Number(p[key]));
-   if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
-  });
-  ctx.strokeStyle=stroke;
-  ctx.lineWidth=lineWidth;
-  ctx.lineJoin='round';
-  ctx.lineCap='round';
-  ctx.stroke();
- };
+  seg.forEach((v,j)=>j?ctx.lineTo(x(v.i),y(v.upper)):ctx.moveTo(x(v.i),y(v.upper)));
+  [...seg].reverse().forEach(v=>ctx.lineTo(x(v.i),y(v.lower)));
+  ctx.closePath();ctx.fillStyle='rgba(170,130,255,.10)';ctx.fill();
+ });
 
- const drawOptionalLine=(key,stroke,lineWidth)=>{
+ const drawOptionalLine=(key,stroke,lineWidth,dash=[])=>{
   const valid=points.filter(p=>Number.isFinite(Number(p[key])));
-  if(valid.length<2)return;
-  ctx.beginPath(); let started=false;
+  if(valid.length<2)return false;
+  ctx.save();ctx.setLineDash(dash);ctx.beginPath();let started=false;
   points.forEach((p,i)=>{
    const value=Number(p[key]);
    if(!Number.isFinite(value)){started=false;return;}
    if(!started){ctx.moveTo(x(i),y(value));started=true;}else ctx.lineTo(x(i),y(value));
   });
-  ctx.strokeStyle=stroke;ctx.lineWidth=lineWidth;ctx.stroke();
+  ctx.strokeStyle=stroke;ctx.lineWidth=lineWidth;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();ctx.restore();
+  return true;
  };
- drawOptionalLine('bollUpper','rgba(170,130,255,.72)',1.4);
- drawOptionalLine('bollMid','rgba(170,130,255,.5)',1.1);
- drawOptionalLine('bollLower','rgba(170,130,255,.72)',1.4);
- drawLine('ema100','#ffb84d',2.2);
- drawLine('close','#27c8ff',2.6);
+
+ const hasBollUpper=drawOptionalLine('bollUpper','rgba(177,137,255,.95)',1.6);
+ drawOptionalLine('bollMid','rgba(177,137,255,.72)',1.2,[6,4]);
+ const hasBollLower=drawOptionalLine('bollLower','rgba(177,137,255,.95)',1.6);
+ drawOptionalLine('ema100','#ffb84d',2.2);
+ drawOptionalLine('close','#27c8ff',2.6);
 
  const last=points[points.length-1];
  const lastX=x(points.length-1);
- const closeY=y(Number(last.close));
- const emaY=y(Number(last.ema100));
+ const close=Number(last.close),ema=Number(last.ema100);
+ if(Number.isFinite(close)){ctx.fillStyle='#27c8ff';ctx.beginPath();ctx.arc(lastX,y(close),4.5,0,Math.PI*2);ctx.fill();}
+ if(Number.isFinite(ema)){ctx.fillStyle='#ffb84d';ctx.beginPath();ctx.arc(lastX,y(ema),4,0,Math.PI*2);ctx.fill();}
 
- ctx.fillStyle='#27c8ff';
- ctx.beginPath();ctx.arc(lastX,closeY,4.5,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='#ffb84d';
- ctx.beginPath();ctx.arc(lastX,emaY,4,0,Math.PI*2);ctx.fill();
-
- ctx.textAlign='right';
- ctx.font='bold 11px sans-serif';
- ctx.fillStyle='#27c8ff';
- ctx.fillText(`價 ${Number(last.close).toFixed(2)}`,lastX-7,closeY-8);
- ctx.fillStyle='#ffb84d';
- ctx.fillText(`EMA ${Number(last.ema100).toFixed(2)}`,lastX-7,emaY+16);
-
- const firstDate=String(points[0].date||'');
- const lastDate=String(last.date||'');
- ctx.fillStyle='#8ca2ba';
- ctx.font='10px sans-serif';
- ctx.textAlign='left';
- ctx.fillText(firstDate,pad.left,height-10);
- ctx.textAlign='right';
- ctx.fillText(lastDate,width-pad.right,height-10);
+ if(!hasBollUpper||!hasBollLower){
+  ctx.fillStyle='rgba(210,220,235,.82)';ctx.font='11px sans-serif';ctx.textAlign='left';
+  ctx.fillText('布林資料不足（需至少20筆）',pad.left,height-8);
+ }
 }
 
 function renderEMA100Signal(stock){
@@ -1173,6 +1161,12 @@ function renderEMA100Signal(stock){
  const distanceEl=document.getElementById('emaDistance');
  const directionEl=document.getElementById('emaDirection');
  const badge=document.getElementById('emaPositionBadge');
+ const bollUpperEl=document.getElementById('bollUpperValue');
+ const bollMidEl=document.getElementById('bollMidValue');
+ const bollLowerEl=document.getElementById('bollLowerValue');
+ const bollWidthEl=document.getElementById('bollWidthValue');
+ const bollPositionEl=document.getElementById('bollPositionValue');
+ const bollStateEl=document.getElementById('bollStateValue');
 
  if(priceEl)priceEl.textContent=Number.isFinite(price)?price.toFixed(2):'-';
  if(emaEl)emaEl.textContent=Number.isFinite(ema)?ema.toFixed(2):'-';
@@ -1181,6 +1175,13 @@ function renderEMA100Signal(stock){
   distanceEl.className=distance>0?'flow-buy':distance<0?'flow-sell':'';
  }
  if(directionEl)directionEl.textContent=rising?'上彎':'走平／下彎';
+ const bUpper=Number(stock?.bollUpper),bMid=Number(stock?.bollMid),bLower=Number(stock?.bollLower),bWidth=Number(stock?.bollWidth);
+ if(bollUpperEl)bollUpperEl.textContent=Number.isFinite(bUpper)?bUpper.toFixed(2):'資料不足';
+ if(bollMidEl)bollMidEl.textContent=Number.isFinite(bMid)?bMid.toFixed(2):'資料不足';
+ if(bollLowerEl)bollLowerEl.textContent=Number.isFinite(bLower)?bLower.toFixed(2):'資料不足';
+ if(bollWidthEl)bollWidthEl.textContent=Number.isFinite(bWidth)?`${bWidth.toFixed(2)}%`:'資料不足';
+ if(bollPositionEl)bollPositionEl.textContent=stock?.bollPosition||'資料不足';
+ if(bollStateEl)bollStateEl.textContent=Number.isFinite(bWidth)?(stock?.bollExpanding?'擴張':'收縮'):'資料不足';
 
  if(badge){
   badge.textContent=above?'多方區':'空方區';
