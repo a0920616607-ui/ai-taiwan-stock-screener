@@ -1440,7 +1440,7 @@ def api_sector_members():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V11.1", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V12", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
@@ -1506,7 +1506,7 @@ def scan():
     period = body.get("period", "day")
     market = str(body.get("market", "all"))
     offset = max(0, int(body.get("offset", 0)))
-    limit = min(40, max(1, int(body.get("limit", 20))))
+    limit = min(80, max(1, int(body.get("limit", 20))))
     client_stocks = body.get("stocks") if isinstance(body.get("stocks"), list) else []
     client_total = max(0, int(body.get("clientTotal", 0) or 0))
 

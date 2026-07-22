@@ -2537,3 +2537,39 @@ main{
 .main-rise-box small{color:#93a9bd;line-height:1.45}
 .main-rise-ema{margin-top:2px;color:#d8e6f2}
 .main-rise-badge{background:linear-gradient(135deg,#0e9d59,#2adf8b)!important;color:#fff!important;border-color:rgba(81,255,169,.75)!important}
+
+/* =========================================================
+   V12 AI智慧排名＋全市場分批掃描
+   ========================================================= */
+.field-help{
+  display:block;
+  margin-top:8px;
+  color:#7f97ad;
+  font-size:11px;
+  line-height:1.45;
+}
+.smart-mode-note{
+  margin:12px 0;
+  padding:13px 14px;
+  border:1px solid rgba(45,199,255,.42);
+  border-radius:14px;
+  background:linear-gradient(135deg,rgba(23,108,157,.18),rgba(93,76,255,.12));
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+.smart-mode-note b{color:#35c9ff}
+.smart-mode-note span{
+  color:#a9bbcc;
+  font-size:12px;
+  line-height:1.5;
+}
+.smart-mode-note.hidden{display:none}
+.smart-rank-badge{
+  color:#fff!important;
+  background:linear-gradient(135deg,#208eff,#6f4dff)!important;
+  border-color:rgba(113,176,255,.8)!important;
+}
+.smart-scan-button.running{
+  box-shadow:0 0 0 1px rgba(53,201,255,.35),0 0 28px rgba(58,109,255,.24);
+}

@@ -265,6 +265,7 @@ async function fetchJsonSafe(url, options={}){
 
 const $=s=>document.querySelector(s);
 let universe=safeLoadUniverse(),results=[],allScannedResults=safeLoadRanking(),period='day',page=0,pageSize=20,pendingCode=null,pendingConfirm=null,singlePeriod='day',singleResult=null;
+let aiSearchMode='smart';
 let scanPool=[];
 let loadedScanPages=new Set();
 let scanContextKey='';
@@ -695,29 +696,90 @@ function setSmartScanState(running,label='智慧選股掃描',detail='同步股�
  if(icon)icon.textContent=running?'●':'▶';
 }
 
+
+async function fetchScanBatch(batchIndex,batchSize){
+ const market=document.getElementById('marketFilter')?.value||'all';
+ const selected=selectedMarketUniverse();
+ const payload={
+  period,
+  market,
+  offset:batchIndex*batchSize,
+  limit:batchSize,
+  clientTotal:selected.length,
+  stocks:[]
+ };
+ return fetchJsonSafe('/api/scan',{
+  retryCount:2,
+  retryDelays:[1800,4000],
+  timeoutMs:120000,
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify(payload)
+ });
+}
+
+function fullMarketBatchCount(batchSize){
+ const market=document.getElementById('marketFilter')?.value||'all';
+ if(market==='all'){
+  const twse=universe.filter(x=>x.market==='TWSE').length;
+  const tpex=universe.filter(x=>x.market==='TPEx').length;
+  return Math.max(1,Math.ceil(Math.max(twse,tpex)/batchSize));
+ }
+ return Math.max(1,Math.ceil(selectedMarketUniverse().length/batchSize));
+}
+
+async function scanFullMarket(){
+ const batchSize=60;
+ const batches=fullMarketBatchCount(batchSize);
+ scanPool=[];
+ results=[];
+ loadedScanPages.clear();
+ page=0;
+ $('#progress').value=0;
+
+ for(let i=0;i<batches;i++){
+  setSmartScanState(true,`全市場掃描 ${i+1}/${batches}`,`每批 ${batchSize} 檔｜已累積 ${scanPool.length} 檔`);
+  $('#progressText').textContent=`AI 全市場掃描中：第 ${i+1}/${batches} 批`;
+  const d=await fetchScanBatch(i,batchSize);
+  const rows=Array.isArray(d.results)?d.results:[];
+  mergeIntoScanPool(rows);
+  mergeRankingRows(rows);
+  $('#progress').value=Math.round(((i+1)/batches)*100);
+  $('#scanned').textContent=scanPool.length;
+  $('#high').textContent=scanPool.filter(x=>Number(x.aiScore??x.score??0)>=80).length;
+  if($('#match')) $('#match').textContent=scanPool.filter(x=>Number(x.aiScore??x.score??0)>=65).length;
+  if(i===0 || i===batches-1 || (i+1)%3===0){
+   showSortedScanPage();
+   renderResults();
+  }
+ }
+
+ showSortedScanPage();
+ renderResults();
+ renderRanking();
+ saveDailyRankingSnapshot();
+ return scanPool;
+}
+
 async function smartScan(){
  const started=performance.now();
- setSmartScanState(true,'同步股票資料中…','上市與上櫃名單同步');
+ setSmartScanState(true,'同步股票資料中…','準備全市場智慧排名');
  try{
-  page=0;
-  resetScanPool();
   await syncUniverse();
-  setSmartScanState(true,'AI 掃描分析中…',`${scanDirection==='bull'?'多方':'空方'}模式｜第 1 頁`);
-  await scanPage();
-  renderRanking();
-  saveDailyRankingSnapshot();
+  await scanFullMarket();
   const seconds=((performance.now()-started)/1000).toFixed(1);
-  setSmartScanState(false,'智慧選股掃描',`完成｜耗時 ${seconds} 秒｜已更新排行榜`);
+  setSmartScanState(false,'智慧選股掃描',`全市場完成｜${scanPool.length} 檔｜耗時 ${seconds} 秒`);
+  $('#progressText').textContent=`V12 全市場掃描完成：${scanPool.length} 檔，已依智慧排名排序`;
  }catch(err){
   const cached=hasSavedScanResults() || allScannedResults.length>0;
   setSmartScanState(
     false,
     '智慧選股掃描',
-    cached?'資料來源暫時失敗，已保留上次結果':'掃描暫時失敗，請稍後再試'
+    cached?'掃描中斷，已保留目前與上次結果':'掃描暫時失敗，請稍後再試'
   );
   setInlineScanMessage(
     cached
-      ? `資料來源暫時失敗，已保留上次掃描結果：${err.message}`
+      ? `全市場掃描中斷，已保留已完成批次：${err.message}`
       : `智慧選股掃描暫時失敗：${err.message}`,
     'error'
   );
@@ -785,41 +847,20 @@ function initTechMultiSelect(){
  updateTechMultiLabel();
 }
 
-function filteredResults(){
- const q=$('#search')?.value.trim()||'';
- const market=$('#marketFilter')?.value||'all';
- const techs=getSelectedTechFilters();
- const sort=$('#sortMode')?.value||'score_desc';
- const minScore=Number(document.getElementById('minScoreFilter')?.value||70);
- const maxDistance=Number(document.getElementById('emaDistanceFilter')?.value||5);
- const earlyOnly=Boolean(document.getElementById('earlyTrendOnly')?.checked);
- const mainRiseOnly=Boolean(document.getElementById('mainRiseOnly')?.checked);
- const mainRiseEMA100=Boolean(document.getElementById('mainRiseEMA100')?.checked);
 
- let a=results.filter(x=>{
-  if(q && !x.code.includes(q) && !x.name.includes(q)) return false;
-  if(market!=='all' && x.market!==market) return false;
-  const ai=Number(x.aiScore??x.score??0);
-  const distance=Number(x.EMADistancePct);
-  if(!mainRiseOnly && ai<minScore)return false;
-  if(!mainRiseOnly && maxDistance<999 && (!Number.isFinite(distance) || distance<0 || distance>maxDistance))return false;
-  if(earlyOnly && !Boolean(x.earlyTrend))return false;
-  if(mainRiseOnly){
-   const mainRise=Boolean(x.mainRiseStart) || (Number(x.bollWidth)<=8 && Number(x.volumeRatio)>=1.2 && Number(x.DIF)>0);
-   if(!mainRise)return false;
-   if(mainRiseEMA100 && !(Boolean(x.aboveEMA100)&&Boolean(x.EMA100Rising)))return false;
-  }
-
-  const signal=getSignal(x);
-  const close=Number(x.close||0);
-  const ema100=Number(x.EMA100||0);
-  const macd=Number(x.MACD||0);
-  const macdSignal=Number(x.MACDSignal||0);
-  const k=Number(x.K||0);
-  const d=Number(x.D||0);
-  const rsi=Number(x.RSI||0);
-  const change=Number(x.change||0);
-  const checks={
+function conditionEvaluation(x){
+ const signal=getSignal(x);
+ const close=Number(x.close||0);
+ const ema100=Number(x.EMA100||0);
+ const macd=Number(x.MACD||0);
+ const macdSignal=Number(x.MACDSignal||0);
+ const k=Number(x.K||0);
+ const d=Number(x.D||0);
+ const rsi=Number(x.RSI||0);
+ const change=Number(x.change||0);
+ return {
+  signal,
+  checks:{
    macd_gold:()=>Boolean(x.MACDGoldenCross)||macd>macdSignal||hasReason(x,'MACD 柱翻正')||hasReason(x,'MACD 黃金交叉'),
    kd_gold:()=>k>d||hasReason(x,'KD 黃金交叉'),
    rsi_up:()=>rsi>=50||hasReason(x,'RSI 向上'),
@@ -847,8 +888,97 @@ function filteredResults(){
    boll_slope_down:()=>Number(x.bollSlopePct)<0,
    foreign_sell:()=>Boolean(x.foreignAvailable)&&Number(x.foreignNet)<0,
    sell:()=>signal.type==='sell'
-  };
+  }
+ };
+}
 
+function smartRankingMetrics(x, techs, maxDistance, earlyOnly, mainRiseOnly, mainRiseEMA100){
+ const {signal,checks}=conditionEvaluation(x);
+ const base=Number(x.aiScore??x.score??0);
+ const distance=Number(x.EMADistancePct);
+ const selectedMatches=techs.filter(key=>Boolean(checks[key]?.())).length;
+
+ let bonus=0;
+ const tags=[];
+
+ // Selected conditions are ranking preferences, not hard exclusions.
+ if(techs.length){
+  bonus += Math.min(18, selectedMatches*3);
+  if(selectedMatches) tags.push(`條件 ${selectedMatches}/${techs.length}`);
+ }
+
+ if(Number.isFinite(distance) && distance>=0 && (maxDistance>=999 || distance<=maxDistance)){
+  bonus += 4;
+  tags.push('EMA乖離符合');
+ }
+ if(Boolean(x.mainRiseStart)){
+  bonus += mainRiseOnly ? 10 : 6;
+  tags.push('主升啟動');
+ }
+ if(mainRiseEMA100 && Boolean(x.aboveEMA100) && Boolean(x.EMA100Rising)){
+  bonus += 4;
+  tags.push('EMA100多頭');
+ }
+ if(Boolean(x.earlyTrend)){
+  bonus += earlyOnly ? 8 : 4;
+  tags.push('AI起漲');
+ }
+ if(scanDirection==='bull' && signal.type==='buy') bonus += 4;
+ if(scanDirection==='bear' && signal.type==='sell') bonus += 4;
+
+ return {
+  base,
+  bonus,
+  smartScore:Math.round((base+bonus)*10)/10,
+  selectedMatches,
+  selectedTotal:techs.length,
+  tags
+ };
+}
+
+function filteredResults(){
+ const q=$('#search')?.value.trim()||'';
+ const market=$('#marketFilter')?.value||'all';
+ const techs=getSelectedTechFilters();
+ const sort=$('#sortMode')?.value||'score_desc';
+ const minScore=Number(document.getElementById('minScoreFilter')?.value||70);
+ const maxDistance=Number(document.getElementById('emaDistanceFilter')?.value||5);
+ const earlyOnly=Boolean(document.getElementById('earlyTrendOnly')?.checked);
+ const mainRiseOnly=Boolean(document.getElementById('mainRiseOnly')?.checked);
+ const mainRiseEMA100=Boolean(document.getElementById('mainRiseEMA100')?.checked);
+ const mode=document.getElementById('aiSearchMode')?.value||aiSearchMode||'smart';
+ aiSearchMode=mode;
+
+ let a=results.filter(x=>{
+  if(q && !String(x.code).includes(q) && !String(x.name).includes(q)) return false;
+  if(market!=='all' && x.market!==market) return false;
+
+  const ai=Number(x.aiScore??x.score??0);
+  if(ai<minScore) return false;
+
+  const {signal,checks}=conditionEvaluation(x);
+  const distance=Number(x.EMADistancePct);
+
+  // V12 smart mode: preserve high-score stocks. Conditions rank, not exclude.
+  if(mode==='smart'){
+   if(scanDirection==='bull' && signal.type==='sell') return false;
+   if(scanDirection==='bear' && signal.type==='buy') return false;
+   const metrics=smartRankingMetrics(x,techs,maxDistance,earlyOnly,mainRiseOnly,mainRiseEMA100);
+   x._smartRankScore=metrics.smartScore;
+   x._smartBonus=metrics.bonus;
+   x._smartMatchText=metrics.selectedTotal?`${metrics.selectedMatches}/${metrics.selectedTotal}`:'';
+   x._smartTags=metrics.tags;
+   return true;
+  }
+
+  // Strict mode keeps the former hard-filter behavior.
+  if(maxDistance<999 && (!Number.isFinite(distance) || distance<0 || distance>maxDistance))return false;
+  if(earlyOnly && !Boolean(x.earlyTrend))return false;
+  if(mainRiseOnly){
+   const mainRise=Boolean(x.mainRiseStart) || (Number(x.bollWidth)<=8 && Number(x.volumeRatio)>=1.2 && Number(x.DIF)>0);
+   if(!mainRise)return false;
+   if(mainRiseEMA100 && !(Boolean(x.aboveEMA100)&&Boolean(x.EMA100Rising)))return false;
+  }
   if(techs.length){
    const matched=techs.map(key=>Boolean(checks[key]?.()));
    if(techMatchMode==='all' && !matched.every(Boolean)) return false;
@@ -857,6 +987,10 @@ function filteredResults(){
    if(scanDirection==='bull' && signal.type==='sell') return false;
    if(scanDirection==='bear' && signal.type==='buy') return false;
   }
+  x._smartRankScore=ai;
+  x._smartBonus=0;
+  x._smartMatchText='';
+  x._smartTags=[];
   return true;
  });
 
@@ -864,6 +998,10 @@ function filteredResults(){
   if(sort==='score_asc') return Number(x.aiScore)-Number(y.aiScore);
   if(sort==='code') return String(x.code).localeCompare(String(y.code));
   if(sort==='volume') return Number(y.volumeRatio||0)-Number(x.volumeRatio||0);
+  if(mode==='smart'){
+   return Number(y._smartRankScore||0)-Number(x._smartRankScore||0) ||
+          Number(y.aiScore||0)-Number(x.aiScore||0);
+  }
   return Number(y.aiScore)-Number(x.aiScore);
  });
  return a;
@@ -884,7 +1022,7 @@ function renderResults(){
       <b>${x.code}</b>
       <span>${x.name}</span>
       <small>${x.market==='TPEx'?'上櫃':'上市'}</small>
-      ${x.mainRiseStart?'<em class="strategy-badge main-rise-badge">🚀主升啟動</em>':x.earlyTrend?'<em class="strategy-badge">AI起漲</em>':x.EMA100MACDStrategy?'<em class="strategy-badge">EMA100策略</em>':''}<small class="metric-note">乖離 ${Number.isFinite(Number(x.EMADistancePct))?Number(x.EMADistancePct).toFixed(1)+'%':'-'}｜布林 ${x.bollWidth??'-'}% ${x.bollPosition||'-'}</small>
+      ${aiSearchMode==='smart'?`<em class="strategy-badge smart-rank-badge">智慧排名 ${Number(x._smartRankScore??x.aiScore??0).toFixed(0)}${Number(x._smartBonus||0)>0?`（+${Number(x._smartBonus).toFixed(0)}）`:''}</em>`:''}${x.mainRiseStart?'<em class="strategy-badge main-rise-badge">🚀主升啟動</em>':x.earlyTrend?'<em class="strategy-badge">AI起漲</em>':x.EMA100MACDStrategy?'<em class="strategy-badge">EMA100策略</em>':''}<small class="metric-note">乖離 ${Number.isFinite(Number(x.EMADistancePct))?Number(x.EMADistancePct).toFixed(1)+'%':'-'}｜布林 ${x.bollWidth??'-'}% ${x.bollPosition||'-'}${x._smartMatchText?`｜條件 ${x._smartMatchText}`:''}</small>
     </button>
 
     <div class="pro-close"><b>${x.close??'-'}</b>${formatPriceChange(x)}</div>
@@ -1405,7 +1543,13 @@ function renderRanking(){
 }
 
 document.getElementById('sortMode')?.addEventListener('change',renderResults);
-['minScoreFilter','emaDistanceFilter','earlyTrendOnly','mainRiseOnly','mainRiseEMA100'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{page=0;renderResults();}));
+['aiSearchMode','minScoreFilter','emaDistanceFilter','earlyTrendOnly','mainRiseOnly','mainRiseEMA100'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{
+ aiSearchMode=document.getElementById('aiSearchMode')?.value||'smart';
+ const note=document.getElementById('smartModeNote');
+ if(note)note.classList.toggle('hidden',aiSearchMode!=='smart');
+ page=0;
+ renderResults();
+}));
 const marketFilter=document.getElementById('marketFilter');
 if(marketFilter){
  marketFilter.addEventListener('change',()=>{
