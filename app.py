@@ -2,10 +2,9 @@
 from flask import Flask, jsonify, request, send_from_directory
 from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import requests, os, re, json, math, base64, mimetypes
+import requests, os, re, json, math
 
 app = Flask(__name__, static_folder=".", static_url_path="")
-app.config["MAX_CONTENT_LENGTH"] = 34 * 1024 * 1024
 
 @app.after_request
 def add_no_cache_headers(response):
@@ -1594,117 +1593,6 @@ def scan():
         })
     except Exception as e:
         return jsonify(ok=False, error=str(e)), 502
-
-
-def _extract_response_text(payload):
-    if not isinstance(payload, dict):
-        return ""
-    text = payload.get("output_text")
-    if isinstance(text, str) and text.strip():
-        return text.strip()
-    chunks = []
-    for item in payload.get("output", []) or []:
-        if not isinstance(item, dict):
-            continue
-        for content in item.get("content", []) or []:
-            if not isinstance(content, dict):
-                continue
-            value = content.get("text")
-            if isinstance(value, str) and value.strip():
-                chunks.append(value.strip())
-    return "\n".join(chunks).strip()
-
-
-def _image_analysis_prompt(note=""):
-    return f"""你是台灣股票技術分析助理。請分析使用者上傳的股票圖表截圖。
-
-所有基本資料都必須先從圖片自動辨識，不要求使用者輸入：
-- 股票代號與名稱
-- 圖表平台
-- 時間週期（1/5/15/30/60/120/240 分、日線、週線、月線等）
-- 最新價格與可見日期
-- 可見技術指標
-
-補充說明：{note or '無'}
-
-要求：
-1. 先逐張辨識商品、股票代號、名稱、平台、時間週期、最新價格與可見日期。無法確定時明確寫「無法可靠辨識」，不可猜測。
-2. 判斷趨勢：多頭、空頭或盤整，並列出證據。
-3. 分析 EMA/MA、MACD、KD、RSI、布林通道與成交量；只有圖片確實可見時才分析。
-4. 辨識主要支撐、壓力、突破確認與失效位置。刻度不清時只描述區域，不得虛構精確價位。
-5. 艾略特波浪需提供「主方案」與「備選方案」，並列出各自成立條件；圖形不足時不得強行數浪。
-6. 提供進場觀察區、停損邏輯、第一與第二目標區，以及風險報酬是否合理。這是研究用途，不是保證獲利。
-7. 多張圖片時，先逐張辨識週期，再做多週期交叉分析；若圖片週期重複也要明確說明。
-8. 以繁體中文輸出，使用清楚標題與條列，最後給 0-100 的「圖表可判讀度」及「分析信心度」。
-"""
-
-
-@app.get("/api/image-analysis/status")
-def image_analysis_status():
-    configured = bool(os.environ.get("OPENAI_API_KEY", "").strip())
-    return jsonify(ok=True, configured=configured, model=os.environ.get("OPENAI_VISION_MODEL", "gpt-4.1-mini"))
-
-
-@app.post("/api/image-analysis")
-def image_analysis():
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        return jsonify(ok=False, error="雲端尚未設定 OPENAI_API_KEY，請在 Render 的 Environment 新增此密鑰後重新部署。"), 503
-
-    files = request.files.getlist("images")
-    if not files:
-        return jsonify(ok=False, error="請至少上傳一張圖片。"), 400
-    if len(files) > 4:
-        return jsonify(ok=False, error="一次最多分析 4 張圖片。"), 400
-
-    content = [{"type": "input_text", "text": _image_analysis_prompt(
-        request.form.get("note", "").strip(),
-    )}]
-
-    total_bytes = 0
-    for f in files:
-        raw = f.read()
-        total_bytes += len(raw)
-        if not raw:
-            return jsonify(ok=False, error=f"圖片 {f.filename or ''} 是空檔案。"), 400
-        if len(raw) > 6 * 1024 * 1024:
-            return jsonify(ok=False, error="單張圖片仍超過 6MB，請重新選擇；手機端通常會自動壓縮。"), 413
-        mime = (f.mimetype or mimetypes.guess_type(f.filename or "")[0] or "image/jpeg").lower()
-        if mime not in {"image/jpeg", "image/png", "image/webp", "image/gif"}:
-            return jsonify(ok=False, error="僅支援 JPG、PNG、WEBP 或 GIF 圖片。"), 415
-        data_url = f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
-        content.append({"type": "input_image", "image_url": data_url, "detail": "high"})
-
-    if total_bytes > 20 * 1024 * 1024:
-        return jsonify(ok=False, error="圖片總容量過大，請壓縮後再試。"), 413
-
-    payload = {
-        "model": os.environ.get("OPENAI_VISION_MODEL", "gpt-4.1-mini"),
-        "input": [{"role": "user", "content": content}],
-        "max_output_tokens": 2000,
-    }
-    try:
-        r = requests.post(
-            "https://api.openai.com/v1/responses",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json=payload,
-            timeout=(20, 260),
-        )
-        try:
-            data = r.json()
-        except Exception:
-            data = {}
-        if not r.ok:
-            message = ((data.get("error") or {}).get("message") if isinstance(data, dict) else None) or f"AI 服務錯誤（HTTP {r.status_code}）"
-            return jsonify(ok=False, error=message), 502
-        text = _extract_response_text(data)
-        if not text:
-            return jsonify(ok=False, error="AI 已回應，但沒有可顯示的分析文字。"), 502
-        return jsonify(ok=True, analysis=text, model=payload["model"], imageCount=len(files))
-    except requests.Timeout:
-        return jsonify(ok=False, error="AI 圖片分析超過 260 秒仍未完成。請先以 1～2 張圖片重試，或稍後再試。"), 504
-    except requests.RequestException as e:
-        return jsonify(ok=False, error=f"無法連接 AI 服務：{e}"), 502
 
 @app.get("/api/institutional/<code>")
 def institutional_detail(code):
