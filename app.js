@@ -1751,6 +1751,7 @@ updateMatchModeUI();
    V13.2 AI 圖片分析：手機自動壓縮、進度與延長逾時
    ========================================================= */
 let imageAnalysisFiles=[];
+let imageAiConfigured=false;
 const IMAGE_MAX_EDGE=1800;
 const IMAGE_JPEG_QUALITY=0.84;
 const IMAGE_MAX_INPUT_BYTES=20*1024*1024;
@@ -1846,11 +1847,24 @@ async function refreshImageAiStatus(){
  const el=document.getElementById('imageAiStatus');if(!el)return;
  try{
   const d=await fetchJsonSafe('/api/image-analysis/status',{retryCount:0,silent:true});
+  imageAiConfigured=!!d.configured;
   el.textContent=d.configured?`AI 已連線｜${d.model}`:'尚未設定 API Key';
   el.className=`image-ai-status ${d.configured?'ok':'warn'}`;
- }catch(e){el.textContent='後端無法連線';el.className='image-ai-status warn';}
+  const runBtn=document.getElementById('runImageAnalysis');
+  if(runBtn){
+   runBtn.disabled=!d.configured;
+   runBtn.title=d.configured?'':'請先在 Render Environment 設定 OPENAI_API_KEY 並重新部署';
+  }
+ }catch(e){
+  imageAiConfigured=false;
+  el.textContent='後端無法連線';el.className='image-ai-status warn';
+ }
 }
 async function runImageAnalysis(){
+ if(!imageAiConfigured){
+  alert('雲端尚未設定 OPENAI_API_KEY。請先到 Render → Environment 新增密鑰，儲存後重新部署。');
+  return;
+ }
  if(!imageAnalysisFiles.length){alert('請先拍照或選擇至少一張圖片');return;}
  const btn=document.getElementById('runImageAnalysis');
  const progress=document.getElementById('imageAnalysisProgress');

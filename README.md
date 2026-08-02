@@ -15,3 +15,18 @@
 必須設定 `OPENAI_API_KEY`。可選設定 `OPENAI_VISION_MODEL`。重新部署後建議使用無痕模式測試，避免舊版快取。
 
 注意：Render 免費方案可能休眠，第一次開啟需等待服務喚醒。多張高複雜度圖表仍可能較慢，建議先用 1～2 張測試。
+
+
+## V13.3 修正
+- 修正 V13 圖片預覽 CSS 被錯誤寫成字面 `\n`，造成手機預覽以原始寬高撐出版面。
+- 手機預覽固定為容器寬度，使用 `object-fit: contain`，只顯示縮圖；實際送出的檔案仍是壓縮後版本。
+- 未設定 `OPENAI_API_KEY` 時停用分析按鈕並顯示明確提示。
+
+## Render 必要設定
+在 Render 服務的 Environment 新增：
+`OPENAI_API_KEY=你的 API key`
+
+可選：
+`OPENAI_VISION_MODEL=gpt-4.1-mini`
+
+儲存後必須重新部署。ChatGPT Plus 不等同 OpenAI API 額度。

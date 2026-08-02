@@ -2573,7 +2573,35 @@ main{
 .smart-scan-button.running{
   box-shadow:0 0 0 1px rgba(53,201,255,.35),0 0 28px rgba(58,109,255,.24);
 }
-\n\n/* =========================================================\n   V13 AI 圖片分析\n   ========================================================= */\n.image-ai-card,.image-result-card{overflow:hidden}\n.image-ai-head,.image-result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}\n.image-ai-head h2{margin:4px 0 7px}.image-ai-head p{margin:0;color:#91a6ba;line-height:1.55}\n.image-ai-status{padding:7px 10px;border-radius:999px;border:1px solid rgba(130,151,170,.35);font-size:11px;white-space:nowrap}\n.image-ai-status.ok{color:#4ee49a;border-color:rgba(78,228,154,.45);background:rgba(25,164,91,.12)}\n.image-ai-status.warn{color:#ffbc5e;border-color:rgba(255,188,94,.45);background:rgba(184,116,16,.12)}\n.image-ai-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:18px 0 12px}\n.image-ai-meta label,.image-note-label{display:grid;gap:7px;color:#9eb0c1;font-size:12px;font-weight:700}\n.image-ai-meta input,.image-ai-meta select,.image-note-label textarea{width:100%;border:1px solid rgba(117,150,178,.35);border-radius:12px;background:#091a2b;color:#eef6ff;padding:12px;box-sizing:border-box}\n.image-drop-zone{min-height:155px;border:2px dashed rgba(51,198,255,.45);border-radius:18px;background:linear-gradient(135deg,rgba(23,116,170,.12),rgba(92,70,206,.10));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;cursor:pointer;padding:20px;transition:.2s}\n.image-drop-zone:hover,.image-drop-zone.dragging{border-color:#36c9ff;background:rgba(35,150,213,.16)}\n.image-drop-zone b{font-size:18px;color:#e9f7ff}.image-drop-zone span{font-size:12px;color:#8fa5b8}\n.image-preview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}\n.image-preview-card{position:relative;border-radius:14px;overflow:hidden;border:1px solid rgba(110,151,182,.35);background:#071522;min-height:90px}\n.image-preview-card img{width:100%;height:120px;object-fit:cover;display:block}\n.image-preview-card span{display:block;padding:7px 9px;font-size:10px;color:#afc0cf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.image-preview-card button{position:absolute;right:6px;top:6px;width:29px;height:29px;border-radius:50%;padding:0;background:rgba(0,0,0,.72);color:#fff;border:1px solid rgba(255,255,255,.3);font-size:20px}\n.image-note-label{margin-top:13px}.image-note-label textarea{resize:vertical;min-height:88px}\n.image-ai-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}.image-ai-actions button{min-height:44px}\n.image-analysis-progress{margin-top:14px;padding:13px;border-radius:13px;background:rgba(39,146,214,.13);color:#aee8ff;display:flex;align-items:center;gap:10px}\n.image-result-head{align-items:center}.image-result-card pre{white-space:pre-wrap;word-break:break-word;font-family:inherit;line-height:1.72;color:#dceaf5;background:#071522;border:1px solid rgba(94,142,178,.28);border-radius:15px;padding:16px;max-height:68vh;overflow:auto}\n.image-risk-note{font-size:11px;line-height:1.55;color:#8296a8}\n@media(max-width:700px){.image-ai-meta{grid-template-columns:1fr}.image-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.image-ai-head{flex-direction:column}.image-ai-actions{display:grid;grid-template-columns:1fr 1fr}.image-preview-card img{height:135px}}\n
+
+
+/* =========================================================
+   V13 AI 圖片分析
+   ========================================================= */
+.image-ai-card,.image-result-card{overflow:hidden}
+.image-ai-head,.image-result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.image-ai-head h2{margin:4px 0 7px}.image-ai-head p{margin:0;color:#91a6ba;line-height:1.55}
+.image-ai-status{padding:7px 10px;border-radius:999px;border:1px solid rgba(130,151,170,.35);font-size:11px;white-space:nowrap}
+.image-ai-status.ok{color:#4ee49a;border-color:rgba(78,228,154,.45);background:rgba(25,164,91,.12)}
+.image-ai-status.warn{color:#ffbc5e;border-color:rgba(255,188,94,.45);background:rgba(184,116,16,.12)}
+.image-ai-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:18px 0 12px}
+.image-ai-meta label,.image-note-label{display:grid;gap:7px;color:#9eb0c1;font-size:12px;font-weight:700}
+.image-ai-meta input,.image-ai-meta select,.image-note-label textarea{width:100%;border:1px solid rgba(117,150,178,.35);border-radius:12px;background:#091a2b;color:#eef6ff;padding:12px;box-sizing:border-box}
+.image-drop-zone{min-height:155px;border:2px dashed rgba(51,198,255,.45);border-radius:18px;background:linear-gradient(135deg,rgba(23,116,170,.12),rgba(92,70,206,.10));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;cursor:pointer;padding:20px;transition:.2s}
+.image-drop-zone:hover,.image-drop-zone.dragging{border-color:#36c9ff;background:rgba(35,150,213,.16)}
+.image-drop-zone b{font-size:18px;color:#e9f7ff}.image-drop-zone span{font-size:12px;color:#8fa5b8}
+.image-preview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}
+.image-preview-card{position:relative;border-radius:14px;overflow:hidden;border:1px solid rgba(110,151,182,.35);background:#071522;min-height:90px}
+.image-preview-card img{width:100%;height:120px;object-fit:cover;display:block}
+.image-preview-card span{display:block;padding:7px 9px;font-size:10px;color:#afc0cf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.image-preview-card button{position:absolute;right:6px;top:6px;width:29px;height:29px;border-radius:50%;padding:0;background:rgba(0,0,0,.72);color:#fff;border:1px solid rgba(255,255,255,.3);font-size:20px}
+.image-note-label{margin-top:13px}.image-note-label textarea{resize:vertical;min-height:88px}
+.image-ai-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}.image-ai-actions button{min-height:44px}
+.image-analysis-progress{margin-top:14px;padding:13px;border-radius:13px;background:rgba(39,146,214,.13);color:#aee8ff;display:flex;align-items:center;gap:10px}
+.image-result-head{align-items:center}.image-result-card pre{white-space:pre-wrap;word-break:break-word;font-family:inherit;line-height:1.72;color:#dceaf5;background:#071522;border:1px solid rgba(94,142,178,.28);border-radius:15px;padding:16px;max-height:68vh;overflow:auto}
+.image-risk-note{font-size:11px;line-height:1.55;color:#8296a8}
+@media(max-width:700px){.image-ai-meta{grid-template-columns:1fr}.image-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.image-ai-head{flex-direction:column}.image-ai-actions{display:grid;grid-template-columns:1fr 1fr}.image-preview-card img{height:135px}}
+
 /* V13.1 手機選圖與自動辨識 */
 .image-auto-detect{display:grid;gap:5px;margin:18px 0 12px;padding:13px 15px;border:1px solid rgba(54,201,255,.28);border-radius:14px;background:rgba(23,116,170,.09)}
 .image-auto-detect b{color:#dff7ff}.image-auto-detect span{color:#91a6ba;font-size:12px;line-height:1.55}
@@ -2581,3 +2609,11 @@ main{
 .image-source-actions button{min-height:48px;font-size:15px}
 .image-drop-zone:focus{outline:2px solid #36c9ff;outline-offset:3px}
 @media(max-width:480px){.image-source-actions{grid-template-columns:1fr}.image-drop-zone{min-height:120px}}
+
+
+/* V13.3 圖片預覽修正 */
+.image-preview-grid{width:100%;min-width:0;overflow:hidden}
+.image-preview-card{width:100%;min-width:0;max-width:100%;overflow:hidden}
+.image-preview-card img{display:block;width:100%!important;max-width:100%!important;height:150px!important;max-height:150px!important;object-fit:contain!important;background:#02070d}
+.image-preview-card span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:normal;overflow-wrap:anywhere;line-height:1.35}
+@media(max-width:700px){.image-preview-grid{grid-template-columns:1fr!important}.image-preview-card img{height:220px!important;max-height:220px!important}}
