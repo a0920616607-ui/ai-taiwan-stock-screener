@@ -1667,28 +1667,28 @@ def image_analysis():
         total_bytes += len(raw)
         if not raw:
             return jsonify(ok=False, error=f"圖片 {f.filename or ''} 是空檔案。"), 400
-        if len(raw) > 8 * 1024 * 1024:
-            return jsonify(ok=False, error="單張圖片不可超過 8MB。"), 413
+        if len(raw) > 6 * 1024 * 1024:
+            return jsonify(ok=False, error="單張圖片仍超過 6MB，請重新選擇；手機端通常會自動壓縮。"), 413
         mime = (f.mimetype or mimetypes.guess_type(f.filename or "")[0] or "image/jpeg").lower()
         if mime not in {"image/jpeg", "image/png", "image/webp", "image/gif"}:
             return jsonify(ok=False, error="僅支援 JPG、PNG、WEBP 或 GIF 圖片。"), 415
         data_url = f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
         content.append({"type": "input_image", "image_url": data_url, "detail": "high"})
 
-    if total_bytes > 28 * 1024 * 1024:
+    if total_bytes > 20 * 1024 * 1024:
         return jsonify(ok=False, error="圖片總容量過大，請壓縮後再試。"), 413
 
     payload = {
         "model": os.environ.get("OPENAI_VISION_MODEL", "gpt-4.1-mini"),
         "input": [{"role": "user", "content": content}],
-        "max_output_tokens": 2200,
+        "max_output_tokens": 2000,
     }
     try:
         r = requests.post(
             "https://api.openai.com/v1/responses",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json=payload,
-            timeout=120,
+            timeout=(20, 260),
         )
         try:
             data = r.json()
@@ -1702,7 +1702,7 @@ def image_analysis():
             return jsonify(ok=False, error="AI 已回應，但沒有可顯示的分析文字。"), 502
         return jsonify(ok=True, analysis=text, model=payload["model"], imageCount=len(files))
     except requests.Timeout:
-        return jsonify(ok=False, error="AI 圖片分析逾時，請減少圖片數量或稍後重試。"), 504
+        return jsonify(ok=False, error="AI 圖片分析超過 260 秒仍未完成。請先以 1～2 張圖片重試，或稍後再試。"), 504
     except requests.RequestException as e:
         return jsonify(ok=False, error=f"無法連接 AI 服務：{e}"), 502
 

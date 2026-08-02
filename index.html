@@ -232,7 +232,7 @@
     </div>
     <div class="image-drop-zone" id="imageDropZone" tabindex="0" role="button" aria-label="選擇圖片">
       <b>點此選擇圖片或拖曳到這裡</b>
-      <span>一次最多 4 張；單張上限 8MB；週期由 AI 自動辨識</span>
+      <span>一次最多 4 張；手機會自動縮圖壓縮；週期由 AI 自動辨識</span>
     </div>
     <div id="imagePreviewGrid" class="image-preview-grid"></div>
     <label class="image-note-label">補充說明<textarea id="imageNote" rows="3" placeholder="例如：請判斷是否為第 4 波反彈，或比較日線與 60 分鐘結構。"></textarea></label>
@@ -240,7 +240,7 @@
       <button id="clearImageAnalysis" class="secondary" type="button">清除圖片</button>
       <button id="runImageAnalysis" type="button">執行 AI 圖片分析</button>
     </div>
-    <div id="imageAnalysisProgress" class="image-analysis-progress" hidden><span class="mini-spinner"></span><b>AI 正在辨識圖表，請稍候…</b></div>
+    <div id="imageAnalysisProgress" class="image-analysis-progress" hidden><span class="mini-spinner"></span><b id="imageAnalysisProgressText">AI 正在辨識圖表，請稍候…</b></div>
   </section>
   <section id="imageAnalysisResultCard" class="card image-result-card" hidden>
     <div class="image-result-head"><h3>圖片分析結果</h3><button id="copyImageAnalysis" class="secondary" type="button">複製結果</button></div>
