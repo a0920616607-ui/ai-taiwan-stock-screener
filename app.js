@@ -1745,3 +1745,82 @@ document.addEventListener('DOMContentLoaded',initTechMultiSelect);
 
 updateDirectionUI();
 updateMatchModeUI();
+
+
+/* =========================================================
+   V13 AI 圖片分析
+   ========================================================= */
+let imageAnalysisFiles=[];
+
+function imageFileKey(file){return `${file.name}:${file.size}:${file.lastModified}`;}
+function addImageAnalysisFiles(fileList){
+ const allowed=['image/jpeg','image/png','image/webp','image/gif'];
+ for(const file of Array.from(fileList||[])){
+  if(!allowed.includes(file.type)){alert(`不支援 ${file.name} 的格式`);continue;}
+  if(file.size>8*1024*1024){alert(`${file.name} 超過 8MB`);continue;}
+  if(imageAnalysisFiles.some(x=>imageFileKey(x)===imageFileKey(file)))continue;
+  if(imageAnalysisFiles.length>=4){alert('一次最多分析 4 張圖片');break;}
+  imageAnalysisFiles.push(file);
+ }
+ renderImageAnalysisPreviews();
+}
+function renderImageAnalysisPreviews(){
+ const holder=document.getElementById('imagePreviewGrid');
+ if(!holder)return;
+ holder.innerHTML='';
+ imageAnalysisFiles.forEach((file,index)=>{
+  const card=document.createElement('div');card.className='image-preview-card';
+  const img=document.createElement('img');img.alt=file.name;img.src=URL.createObjectURL(file);img.onload=()=>URL.revokeObjectURL(img.src);
+  const meta=document.createElement('span');meta.textContent=`${index+1}. ${file.name}`;
+  const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','移除圖片');
+  remove.onclick=()=>{imageAnalysisFiles.splice(index,1);renderImageAnalysisPreviews();};
+  card.append(img,meta,remove);holder.appendChild(card);
+ });
+ const zone=document.getElementById('imageDropZone');
+ if(zone)zone.classList.toggle('has-files',imageAnalysisFiles.length>0);
+}
+async function refreshImageAiStatus(){
+ const el=document.getElementById('imageAiStatus');if(!el)return;
+ try{
+  const d=await fetchJsonSafe('/api/image-analysis/status',{retryCount:0,silent:true});
+  el.textContent=d.configured?`AI 已連線｜${d.model}`:'尚未設定 API Key';
+  el.className=`image-ai-status ${d.configured?'ok':'warn'}`;
+ }catch(e){el.textContent='後端無法連線';el.className='image-ai-status warn';}
+}
+async function runImageAnalysis(){
+ if(!imageAnalysisFiles.length){alert('請先拍照或選擇至少一張圖片');return;}
+ const btn=document.getElementById('runImageAnalysis');
+ const progress=document.getElementById('imageAnalysisProgress');
+ const resultCard=document.getElementById('imageAnalysisResultCard');
+ const result=document.getElementById('imageAnalysisResult');
+ const form=new FormData();
+ imageAnalysisFiles.forEach(file=>form.append('images',file,file.name));
+ form.append('stockCode',document.getElementById('imageStockCode')?.value.trim()||'');
+ form.append('stockName',document.getElementById('imageStockName')?.value.trim()||'');
+ form.append('timeframe',document.getElementById('imageTimeframe')?.value||'');
+ form.append('note',document.getElementById('imageNote')?.value.trim()||'');
+ btn.disabled=true;btn.textContent='分析中…';progress.hidden=false;resultCard.hidden=true;
+ try{
+  const d=await fetchJsonSafe('/api/image-analysis',{method:'POST',body:form,timeoutMs:130000,retryCount:0});
+  result.textContent=d.analysis||'沒有分析內容';resultCard.hidden=false;
+  resultCard.scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(e){
+  result.textContent=`分析失敗：${e.message}`;resultCard.hidden=false;
+ }finally{btn.disabled=false;btn.textContent='執行 AI 圖片分析';progress.hidden=true;}
+}
+function initImageAnalysis(){
+ const input=document.getElementById('imageFiles');
+ const zone=document.getElementById('imageDropZone');
+ input?.addEventListener('change',()=>{addImageAnalysisFiles(input.files);input.value='';});
+ ['dragenter','dragover'].forEach(name=>zone?.addEventListener(name,e=>{e.preventDefault();zone.classList.add('dragging');}));
+ ['dragleave','drop'].forEach(name=>zone?.addEventListener(name,e=>{e.preventDefault();zone.classList.remove('dragging');}));
+ zone?.addEventListener('drop',e=>addImageAnalysisFiles(e.dataTransfer.files));
+ document.getElementById('runImageAnalysis')?.addEventListener('click',runImageAnalysis);
+ document.getElementById('clearImageAnalysis')?.addEventListener('click',()=>{imageAnalysisFiles=[];renderImageAnalysisPreviews();document.getElementById('imageAnalysisResultCard').hidden=true;});
+ document.getElementById('copyImageAnalysis')?.addEventListener('click',async()=>{
+  const text=document.getElementById('imageAnalysisResult')?.textContent||'';
+  try{await navigator.clipboard.writeText(text);alert('已複製分析結果');}catch(_){alert('瀏覽器未允許複製，請長按文字手動複製');}
+ });
+ refreshImageAiStatus();
+}
+document.addEventListener('DOMContentLoaded',initImageAnalysis);
