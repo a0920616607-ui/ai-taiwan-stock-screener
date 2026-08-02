@@ -220,16 +220,20 @@
       <div><small>AI VISION ANALYSIS</small><h2>AI 圖片分析</h2><p>手機可直接拍照或從相簿選取 TradingView、三竹、XQ 等圖表。</p></div>
       <span id="imageAiStatus" class="image-ai-status">檢查中</span>
     </div>
-    <div class="image-ai-meta">
-      <label>股票代號<input id="imageStockCode" inputmode="numeric" maxlength="4" placeholder="例如 2330"></label>
-      <label>股票名稱<input id="imageStockName" placeholder="例如 台積電"></label>
-      <label>圖表週期<select id="imageTimeframe"><option value="">自動辨識</option><option>5 分鐘</option><option>15 分鐘</option><option>60 分鐘</option><option>日線</option><option>週線</option><option>月線</option></select></label>
+    <div class="image-auto-detect">
+      <b>AI 自動辨識</b>
+      <span>股票代號、名稱、圖表週期、平台、指標與價格刻度皆由圖片判斷。</span>
     </div>
-    <label class="image-drop-zone" id="imageDropZone">
-      <input id="imageFiles" type="file" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment" multiple hidden>
-      <b>拍照或選擇圖片</b>
-      <span>一次最多 4 張；單張上限 8MB</span>
-    </label>
+    <div class="image-source-actions">
+      <button id="takeImageButton" type="button">📷 直接拍照</button>
+      <button id="pickImageButton" class="secondary" type="button">🖼️ 從相簿選擇</button>
+      <input id="cameraImageFiles" type="file" accept="image/*" capture="environment" hidden>
+      <input id="imageFiles" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+    </div>
+    <div class="image-drop-zone" id="imageDropZone" tabindex="0" role="button" aria-label="選擇圖片">
+      <b>點此選擇圖片或拖曳到這裡</b>
+      <span>一次最多 4 張；單張上限 8MB；週期由 AI 自動辨識</span>
+    </div>
     <div id="imagePreviewGrid" class="image-preview-grid"></div>
     <label class="image-note-label">補充說明<textarea id="imageNote" rows="3" placeholder="例如：請判斷是否為第 4 波反彈，或比較日線與 60 分鐘結構。"></textarea></label>
     <div class="image-ai-actions">

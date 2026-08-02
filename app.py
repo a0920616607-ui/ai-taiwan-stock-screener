@@ -1615,23 +1615,26 @@ def _extract_response_text(payload):
     return "\n".join(chunks).strip()
 
 
-def _image_analysis_prompt(stock_code="", stock_name="", timeframe="", note=""):
+def _image_analysis_prompt(note=""):
     return f"""你是台灣股票技術分析助理。請分析使用者上傳的股票圖表截圖。
 
-已知資料：
-- 股票代號：{stock_code or '未提供'}
-- 股票名稱：{stock_name or '未提供'}
-- 使用者指定週期：{timeframe or '請由圖片判斷'}
-- 補充說明：{note or '無'}
+所有基本資料都必須先從圖片自動辨識，不要求使用者輸入：
+- 股票代號與名稱
+- 圖表平台
+- 時間週期（1/5/15/30/60/120/240 分、日線、週線、月線等）
+- 最新價格與可見日期
+- 可見技術指標
+
+補充說明：{note or '無'}
 
 要求：
-1. 先辨識圖片中的商品、時間週期、最新價格與可見日期；看不清楚時明確寫「無法可靠辨識」，不可猜測。
+1. 先逐張辨識商品、股票代號、名稱、平台、時間週期、最新價格與可見日期。無法確定時明確寫「無法可靠辨識」，不可猜測。
 2. 判斷趨勢：多頭、空頭或盤整，並列出證據。
 3. 分析 EMA/MA、MACD、KD、RSI、布林通道與成交量；只有圖片確實可見時才分析。
 4. 辨識主要支撐、壓力、突破確認與失效位置。刻度不清時只描述區域，不得虛構精確價位。
 5. 艾略特波浪需提供「主方案」與「備選方案」，並列出各自成立條件；圖形不足時不得強行數浪。
 6. 提供進場觀察區、停損邏輯、第一與第二目標區，以及風險報酬是否合理。這是研究用途，不是保證獲利。
-7. 多張圖片時，先逐張辨識，再做多週期交叉分析。
+7. 多張圖片時，先逐張辨識週期，再做多週期交叉分析；若圖片週期重複也要明確說明。
 8. 以繁體中文輸出，使用清楚標題與條列，最後給 0-100 的「圖表可判讀度」及「分析信心度」。
 """
 
@@ -1655,9 +1658,6 @@ def image_analysis():
         return jsonify(ok=False, error="一次最多分析 4 張圖片。"), 400
 
     content = [{"type": "input_text", "text": _image_analysis_prompt(
-        request.form.get("stockCode", "").strip(),
-        request.form.get("stockName", "").strip(),
-        request.form.get("timeframe", "").strip(),
         request.form.get("note", "").strip(),
     )}]
 

@@ -1795,9 +1795,6 @@ async function runImageAnalysis(){
  const result=document.getElementById('imageAnalysisResult');
  const form=new FormData();
  imageAnalysisFiles.forEach(file=>form.append('images',file,file.name));
- form.append('stockCode',document.getElementById('imageStockCode')?.value.trim()||'');
- form.append('stockName',document.getElementById('imageStockName')?.value.trim()||'');
- form.append('timeframe',document.getElementById('imageTimeframe')?.value||'');
  form.append('note',document.getElementById('imageNote')?.value.trim()||'');
  btn.disabled=true;btn.textContent='分析中…';progress.hidden=false;resultCard.hidden=true;
  try{
@@ -1810,8 +1807,17 @@ async function runImageAnalysis(){
 }
 function initImageAnalysis(){
  const input=document.getElementById('imageFiles');
+ const cameraInput=document.getElementById('cameraImageFiles');
  const zone=document.getElementById('imageDropZone');
- input?.addEventListener('change',()=>{addImageAnalysisFiles(input.files);input.value='';});
+ const takeButton=document.getElementById('takeImageButton');
+ const pickButton=document.getElementById('pickImageButton');
+ const handleFiles=el=>{addImageAnalysisFiles(el.files);el.value='';};
+ input?.addEventListener('change',()=>handleFiles(input));
+ cameraInput?.addEventListener('change',()=>handleFiles(cameraInput));
+ takeButton?.addEventListener('click',()=>cameraInput?.click());
+ pickButton?.addEventListener('click',()=>input?.click());
+ zone?.addEventListener('click',()=>input?.click());
+ zone?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();input?.click();}});
  ['dragenter','dragover'].forEach(name=>zone?.addEventListener(name,e=>{e.preventDefault();zone.classList.add('dragging');}));
  ['dragleave','drop'].forEach(name=>zone?.addEventListener(name,e=>{e.preventDefault();zone.classList.remove('dragging');}));
  zone?.addEventListener('drop',e=>addImageAnalysisFiles(e.dataTransfer.files));
