@@ -50,6 +50,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,"Microsof
 /* V6.6 燈號量能版 */
 main{padding-top:10px}
 .tabs{margin-top:8px}
+.export-btn{padding:8px 12px!important;font-size:12px!important;white-space:nowrap;background:var(--card2)!important;color:#cfe3f5!important;border:1px solid var(--line)!important}
 .signal-table table{min-width:880px}
 .signal-table th,.signal-table td{padding:13px 10px;vertical-align:middle}
 .signal-table th:first-child,.signal-table td:first-child{padding-left:4px}

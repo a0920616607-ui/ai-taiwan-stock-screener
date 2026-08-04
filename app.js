@@ -1281,6 +1281,9 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
 fetch('/api/health').then(r=>r.json()).then(()=>$('#health').textContent='雲端正常').catch(()=>$('#health').textContent='連線異常');
 renderGroups();renderWatch();renderResults();
 
+// V13：首頁改為「上市類股」總覽（簡單畫面），開啟 App 直接看到大盤類股與排行，不需先設定篩選條件。
+loadSectors('TWSE');
+
 if(universe.length){
  $('#total').textContent=universe.length;
  const last=localStorage.getItem('v63-last-sync');
@@ -1683,15 +1686,17 @@ function sectorMemberRowHtml(x,index){
  const ch=Number(x.change||0);
  const cls=pct>0?'price-up':pct<0?'price-down':'price-flat';
  const symbol=pct>0?'▲':pct<0?'▼':'－';
- const inst=Number(x.institutional||0);
+ const instAvailable=Boolean(x.institutionalAvailable);
+ const inst=Number(x.institutionalLots||0);
  const main=Number(x.mainForce||0);
+ const instLabel=instAvailable?`${inst>=0?'+':''}${inst}張`:'—';
  return `<button class="sector-member-row" type="button" onclick="analyzeSingleStock('${x.code}','day').then(()=>openStockDetailByCode('${x.code}'))">
    <span class="sector-rank">${index+1}</span>
    <span class="sector-stock"><b>${x.code}</b><strong>${x.name}</strong><small>${x.market==='TPEx'?'上櫃':'上市'}</small></span>
    <span class="sector-data-card sector-close-card"><small>收盤價</small><b>${x.close??'-'}</b></span>
    <span class="sector-data-card sector-change-card ${cls}"><small>漲跌</small><b>${symbol} ${Math.abs(ch).toFixed(2)}</b><em>${Math.abs(pct).toFixed(2)}%</em></span>
    <span class="sector-data-card sector-ai-card"><small>AI 總分</small><b>${Number(x.aiScore||0)}</b></span>
-   <span class="sector-data-card sector-flow-card"><small>法人／主力</small><b class="${inst>=0?'price-up':'price-down'}">法人 ${inst>=0?'+':''}${inst}</b><em>主力 ${main}</em></span>
+   <span class="sector-data-card sector-flow-card"><small>法人／主力</small><b class="${inst>=0?'price-up':'price-down'}">法人 ${instLabel}</b><em>主力 ${main}</em></span>
    <span class="sector-arrow">›</span>
  </button>`;
 }
@@ -1740,6 +1745,54 @@ function warnIfTpexMissing(){
  }
 }
 document.getElementById('marketFilter')?.addEventListener('change',warnIfTpexMissing);
+
+// ---- V13：CSV 匯出（純前端，不需額外後端端點） ----
+function downloadCsv(filename, headers, rows){
+ const escapeCell=v=>{
+  const s=(v===null||v===undefined)?'':String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+ };
+ const lines=[headers.map(escapeCell).join(',')].concat(
+  rows.map(r=>headers.map(h=>escapeCell(r[h])).join(','))
+ );
+ // 加上 UTF-8 BOM，避免 Excel 開啟中文亂碼。
+ const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');
+ a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+ document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+document.getElementById('exportScanCsv')?.addEventListener('click',()=>{
+ const rows=filteredResults().map(x=>({
+  代號:x.code,名稱:x.name,市場:x.market==='TPEx'?'上櫃':'上市',收盤價:x.close,漲跌幅:x.changePct,
+  AI總分:x.aiScore??x.score,技術分數:x.technicalScore,法人分數:x.institutionalScore,主力分數:x.mainForceScore,
+  成交量張:x.volumeLots,狀態:x.status
+ }));
+ if(!rows.length){alert('目前沒有可匯出的掃描結果');return}
+ downloadCsv(`掃描結果_${new Date().toISOString().slice(0,10)}.csv`,
+  ['代號','名稱','市場','收盤價','漲跌幅','AI總分','技術分數','法人分數','主力分數','成交量張','狀態'],rows);
+});
+
+document.getElementById('exportRankingCsv')?.addEventListener('click',()=>{
+ const rows=selectedRankingRows().map(x=>({
+  代號:x.code,名稱:x.name,市場:x.market==='TPEx'?'上櫃':'上市',收盤價:x.close,AI分數:x.aiScore??x.score
+ }));
+ if(!rows.length){alert('目前沒有排行榜資料可匯出');return}
+ downloadCsv(`AI排行榜_${new Date().toISOString().slice(0,10)}.csv`,
+  ['代號','名稱','市場','收盤價','AI分數'],rows);
+});
+
+document.getElementById('exportWatchCsv')?.addEventListener('click',()=>{
+ const codes=groups[currentGroup]||[];
+ const rows=codes.map(code=>{
+  const x=results.find(v=>v.code===code),u=universe.find(v=>v.code===code);
+  return {代號:code,名稱:x?.name||u?.name||code,分類:currentGroup,AI總分:x?.aiScore??x?.score??'',收盤價:x?.close??''};
+ });
+ if(!rows.length){alert('此分類尚無股票可匯出');return}
+ downloadCsv(`自選股_${currentGroup}_${new Date().toISOString().slice(0,10)}.csv`,
+  ['代號','名稱','分類','AI總分','收盤價'],rows);
+});
 
 document.addEventListener('DOMContentLoaded',initTechMultiSelect);
 
