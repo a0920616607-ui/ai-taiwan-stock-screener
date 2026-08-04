@@ -6,27 +6,6 @@ import requests, os, re, json, math
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
-# V13：簡易速率限制（不依賴額外套件），避免單一來源短時間內大量觸發
-# /api/scan、/api/stock 等會對外呼叫 Yahoo／TWSE 的昂貴端點。
-_RATE_LIMIT_WINDOW_SECONDS = 60
-_RATE_LIMIT_MAX_HITS = 30
-_RATE_LIMIT_BUCKET = {}
-
-def _rate_limited(key):
-    now = time.time()
-    hits = [t for t in _RATE_LIMIT_BUCKET.get(key, []) if now - t < _RATE_LIMIT_WINDOW_SECONDS]
-    hits.append(now)
-    _RATE_LIMIT_BUCKET[key] = hits
-    return len(hits) > _RATE_LIMIT_MAX_HITS
-
-@app.before_request
-def _guard_expensive_endpoints():
-    if request.path in ("/api/scan",) or request.path.startswith("/api/stock/"):
-        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "unknown").split(",")[0].strip()
-        if _rate_limited(f"{ip}:{request.path.split('/')[2] if len(request.path.split('/'))>2 else request.path}"):
-            return jsonify(ok=False, error="請求過於頻繁，請稍後再試。"), 429
-
-
 @app.after_request
 def add_no_cache_headers(response):
     # 避免 Render 部署新版後，手機仍載入舊版 app.js / API 結果。
@@ -47,8 +26,6 @@ TPEX_DAILY_FALLBACKS = [
 ]
 TPEX_INST = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"
 UA = {"User-Agent": "Mozilla/5.0 (compatible; TaiwanStockAI/10.8)"}
-# 成交量門檻：低於此張數（流動性過低）的個股一律從掃描與排行結果剔除。
-MIN_VOLUME_LOTS = 1000
 INST_CACHE_FILE = os.path.join(os.path.dirname(__file__), "institutional_last_good_v108.json")
 
 import time
@@ -780,33 +757,7 @@ def institutional_map(force=False):
     return merged
 
 
-# V13：Yahoo 日線資料快取，避免全市場掃描時對 Yahoo 重複打上千次請求。
-# 盤中資料變動快，快取時間較短；資料本身是「日線」，短快取已足夠避免重複抓取同一批次。
-_CHART_CACHE = {}
-_CHART_CACHE_SECONDS = 900  # 15 分鐘
-_CHART_CACHE_LOCK_SECONDS = 60
-
-def _chart_cache_get(cache_key):
-    item = _CHART_CACHE.get(cache_key)
-    if not item:
-        return None
-    if (time.time() - item["ts"]) > _CHART_CACHE_SECONDS:
-        return None
-    return item["rows"], item["meta"]
-
-def _chart_cache_set(cache_key, rows, meta):
-    _CHART_CACHE[cache_key] = {"rows": rows, "meta": meta, "ts": time.time()}
-
-
 def yahoo_chart(code, period="day"):
-    # 快取只存「日線」原始資料；週線／月線由日線 resample 而來，共用同一份快取。
-    cache_key = code
-    cached = _chart_cache_get(cache_key)
-    if cached:
-        rows, meta = cached
-        rows = resample(rows, period) if period != "day" else rows
-        return rows, meta
-
     last_error = None
 
     # .TW = 上市；.TWO = 上櫃
@@ -814,31 +765,13 @@ def yahoo_chart(code, period="day"):
         symbol = f"{code}{suffix}"
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 
-        response = None
-        for attempt in range(2):
-            try:
-                response = requests.get(
-                    url,
-                    params={"interval": "1d", "range": "5y", "events": "history"},
-                    headers=UA,
-                    timeout=25
-                )
-                if response.status_code == 429:
-                    # 被限流時短暫等待後重試一次，避免整批掃描直接失敗。
-                    last_error = "來源暫時限流 (429)"
-                    time.sleep(0.8 * (attempt + 1))
-                    continue
-                break
-            except Exception as exc:
-                last_error = str(exc)
-                time.sleep(0.4 * (attempt + 1))
-                response = None
-
-        if response is None:
-            continue
-
         try:
-            r = response
+            r = requests.get(
+                url,
+                params={"interval": "1d", "range": "5y", "events": "history"},
+                headers=UA,
+                timeout=25
+            )
             r.raise_for_status()
             payload = r.json()
             chart = payload.get("chart", {})
@@ -885,17 +818,14 @@ def yahoo_chart(code, period="day"):
                 last_error = "沒有可用歷史行情"
                 continue
 
-            meta_out = {
+            if period != "day":
+                rows = resample(rows, period)
+
+            return rows, {
                 "symbol": symbol,
                 "exchange": "TWSE" if suffix == ".TW" else "TPEx",
                 "name": meta.get("longName") or meta.get("shortName") or code
             }
-            _chart_cache_set(cache_key, rows, meta_out)
-
-            if period != "day":
-                rows = resample(rows, period)
-
-            return rows, meta_out
 
         except Exception as exc:
             last_error = str(exc)
@@ -1099,8 +1029,6 @@ def analyze(code, name, period, inst):
     vol6 = sma(v, 6) or 1
     vr = v[i] / vol6 if vol6 else 0
     price_change = ((c[i] / c[p]) - 1) * 100 if c[p] else 0
-    # 台股慣例：1 張 = 1000 股。用來過濾成交量過小、流動性不足的個股。
-    volume_lots = round((v[i] or 0) / 1000, 1)
 
     if vr >= 1.2 and price_change >= 0:
         bull_strength += 1
@@ -1211,48 +1139,34 @@ def analyze(code, name, period, inst):
     institutional_reasons = []
     institutional_available = bool(inst_data.get("institutionalAvailable"))
 
-    # V13：依買賣超「金額規模（張數）」分級加減分，而非只看方向。
-    # 這樣同樣是買超，買 1 張跟買 1 萬張不會得到相同分數。
-    def _tiered_points(net_value, base_shares_scale, strong_pts, medium_pts, light_pts):
-        """net_value 單位為股。依相對於流通量體感的張數門檻分三級。"""
-        if net_value is None:
-            return 0, ""
-        lots = net_value / 1000  # 股轉張
-        sign = 1 if net_value > 0 else (-1 if net_value < 0 else 0)
-        if sign == 0:
-            return 0, ""
-        magnitude = abs(lots)
-        if magnitude >= base_shares_scale * 5:
-            pts = strong_pts
-            tier = "大額"
-        elif magnitude >= base_shares_scale:
-            pts = medium_pts
-            tier = "中額"
-        else:
-            pts = light_pts
-            tier = "小額"
-        return sign * pts, tier
-
     if institutional_available:
-        pts, tier = _tiered_points(institutional_net, 500, 22, 16, 8)
-        if pts:
-            institutional_score += pts
-            institutional_reasons.append(f"官方三大法人合計{'買超' if pts>0 else '賣超'}（{tier}）{pts:+d}")
+        if institutional_net is not None and institutional_net > 0:
+            institutional_score += 18
+            institutional_reasons.append("官方三大法人合計買超 +18")
+        elif institutional_net is not None and institutional_net < 0:
+            institutional_score -= 18
+            institutional_reasons.append("官方三大法人合計賣超 -18")
 
-        pts, tier = _tiered_points(foreign_net, 1000, 15, 10, 5)
-        if pts:
-            institutional_score += pts
-            institutional_reasons.append(f"官方外資{'買超' if pts>0 else '賣超'}（{tier}）{pts:+d}")
+        if foreign_net is not None and foreign_net > 0:
+            institutional_score += 12
+            institutional_reasons.append("官方外資買超 +12")
+        elif foreign_net is not None and foreign_net < 0:
+            institutional_score -= 10
+            institutional_reasons.append("官方外資賣超 -10")
 
-        pts, tier = _tiered_points(trust_net, 200, 15, 10, 5)
-        if pts:
-            institutional_score += pts
-            institutional_reasons.append(f"官方投信{'買超' if pts>0 else '賣超'}（{tier}）{pts:+d}")
+        if trust_net is not None and trust_net > 0:
+            institutional_score += 12
+            institutional_reasons.append("官方投信買超 +12")
+        elif trust_net is not None and trust_net < 0:
+            institutional_score -= 8
+            institutional_reasons.append("官方投信賣超 -8")
 
-        pts, tier = _tiered_points(dealer_net, 200, 10, 7, 3)
-        if pts:
-            institutional_score += pts
-            institutional_reasons.append(f"官方自營商{'買超' if pts>0 else '賣超'}（{tier}）{pts:+d}")
+        if dealer_net is not None and dealer_net > 0:
+            institutional_score += 8
+            institutional_reasons.append("官方自營商買超 +8")
+        elif dealer_net is not None and dealer_net < 0:
+            institutional_score -= 6
+            institutional_reasons.append("官方自營商賣超 -6")
     else:
         institutional_reasons.append("官方法人資料尚未發布或暫時無法取得，法人分數維持中性")
 
@@ -1375,8 +1289,6 @@ def analyze(code, name, period, inst):
         "bollSlopeState": boll_slope_state,
         "priceDataDate": rows[-1]["date"],
         "volumeDataDate": rows[-1]["date"],
-        "volume": round(v[i] or 0),
-        "volumeLots": volume_lots,
         "bullStrength": bull_strength,
         "bearStrength": bear_strength,
         "emaSignalReasons": ema_signal_reasons,
@@ -1498,43 +1410,20 @@ def api_sector_members():
                 if str(x.get("industry") or classify_sector(x.get("name")) or "其他") == sector
             ]
 
-        # 先依當日漲跌幅粗略排序，只對前 80 檔跑完整 AI 分析，避免大類股（如電子零組件）過慢。
-        rows = sorted(rows, key=lambda x: float(x.get("changePct") or 0), reverse=(sort_mode != "down"))[:80]
-
-        inst = institutional_map()
-        analyzed = {}
-        with ThreadPoolExecutor(max_workers=6) as ex:
-            futs = {ex.submit(analyze, x["code"], x["name"], "day", inst): x for x in rows}
-            for f in as_completed(futs):
-                stock_info = futs[f]
-                try:
-                    analyzed[stock_info["code"]] = f.result()
-                except Exception:
-                    continue
-
         enriched = []
         for item in rows:
-            code = item.get("code")
-            detail = analyzed.get(code)
-            if not detail:
-                continue
-            volume_lots = float(detail.get("volumeLots") or 0)
-            if volume_lots < MIN_VOLUME_LOTS:
-                continue
-            inst_net = detail.get("institutionalNet")
-            inst_lots = round(inst_net / 1000, 1) if inst_net is not None else None
+            change = float(item.get("change") or 0)
+            pct = float(item.get("changePct") or 0)
             enriched.append({
-                "code": code,
+                "code": item.get("code"),
                 "name": item.get("name"),
                 "market": item.get("market"),
-                "close": detail.get("close"),
-                "change": detail.get("change"),
-                "changePct": detail.get("changePct"),
-                "aiScore": detail.get("aiScore", 0) or 0,
-                "institutionalLots": inst_lots,
-                "institutionalAvailable": bool(detail.get("institutionalAvailable")),
-                "mainForce": detail.get("mainForceScore", 0) or 0,
-                "volumeLots": volume_lots,
+                "close": item.get("close"),
+                "change": round(change, 2),
+                "changePct": round(pct, 2),
+                "aiScore": item.get("aiScore", item.get("score", 0)) or 0,
+                "institutional": item.get("institutional", 0) or 0,
+                "mainForce": item.get("mainForce", 0) or 0,
             })
 
         if sort_mode == "down":
@@ -1551,7 +1440,7 @@ def api_sector_members():
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, version="V13", time=datetime.now().isoformat())
+    return jsonify(ok=True, version="V12", time=datetime.now().isoformat())
 
 @app.get("/api/universe")
 def universe():
@@ -1663,14 +1552,6 @@ def scan():
                         "error": str(exc)
                     })
 
-        min_volume_lots = MIN_VOLUME_LOTS
-        try:
-            min_volume_lots = max(0, int(body.get("minVolumeLots", MIN_VOLUME_LOTS)))
-        except Exception:
-            pass
-        low_volume_excluded = sum(1 for x in results if float(x.get("volumeLots") or 0) < min_volume_lots)
-        results = [x for x in results if float(x.get("volumeLots") or 0) >= min_volume_lots]
-
         results.sort(key=lambda x: x["score"], reverse=True)
         analyzed_counts = {
             "TWSE": sum(1 for x in results if x.get("market") == "TWSE"),
@@ -1705,8 +1586,6 @@ def scan():
             "sourceMarketCounts": {"TWSE": len(twse_rows) if market == "all" else (len(uni) if market == "TWSE" else 0), "TPEx": len(tpex_rows) if market == "all" else (len(uni) if market == "TPEx" else 0)},
             "successCount": len(results),
             "errorCount": len(errors),
-            "lowVolumeExcluded": low_volume_excluded,
-            "minVolumeLots": min_volume_lots,
             "nextOffset": offset + len(batch),
             "date": datetime.now().strftime("%Y-%m-%d"),
             "results": results,

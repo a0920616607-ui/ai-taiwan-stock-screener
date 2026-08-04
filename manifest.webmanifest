@@ -1,12 +1,8 @@
 {
-  "name": "AI 台灣個股智慧選股 V13",
-  "short_name": "台股 AI",
+  "name": "AI 台灣個股智慧選股 V12",
+  "short_name": "台股 AI V12",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#06101d",
-  "theme_color": "#07111f",
-  "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ]
+  "theme_color": "#07111f"
 }
